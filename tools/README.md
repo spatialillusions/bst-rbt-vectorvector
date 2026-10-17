@@ -33,6 +33,7 @@ a fresh output directory, preserving earlier results.
 | Prepare supplemental Antarctic ice polygons | `prepare_ice_sheet.py` | Install `requirements-ice.txt`; official ZIP to WGS84 WKB, with source hashes and provenance |
 | Estimate global output/shard storage | `estimate_planet_storage.py` | Seeded uniform per-zoom samples; standard library; measured page-layout overhead |
 | Compare contour-only output size with RBT | `compare_contour_sizes.py` | Standard library; same stratified sample, encoded layers copied verbatim and equally compressed |
+| Verify every merged key/payload against completed shards | `verify_shard_merge.py` | Standard library; frozen merger copy order, full destination integrity, completion stamps; at most two open databases |
 | Measure global-index, recovery and quality pilots | `run_planet_pilot.py`, `monitor_job.py` | Windows telemetry; frozen executable, fresh output directories, optional low-memory stop |
 | Check seams, ice and peak output; render the real style | `rbt_reference/check_planet_pilot.py`, `render_planet_pilot.py` | Analysis dependencies; rendering also requires TileServer GL and RBT data/styles/fonts |
 | Investigate 10 m / z14 contours | `ContourDetailProbe.java`, `investigate_contour_detail.py`, `analyze_contour_detail.py` | Research-only harness; production option not implemented; see the investigation report |
@@ -70,6 +71,9 @@ extract. This does not repair invalid source geometry or guarantee that every OS
 `quality` generates bounded windows including dateline and latitude-limit tiles. Its local
 defaults are configurable with `--help`. The monitor stops only its own subprocess when the
 configured available-memory floor is crossed for five consecutive samples.
+`--min-disk-free-gib` similarly stops only that child after five samples below the requested
+free-space floor on any watched volume (working directory, temporary directory and `--disk-path`).
+It records `disk_floor_stop` separately from memory stops. Use a reserve for long production runs.
 
 For a large synthetic merge, pass `--shards N --prepare-only` to `benchmark_merge.py`, then
 use `MergeBenchmark.java ... --streaming-verify`. This mode is only for those synthetic sources:

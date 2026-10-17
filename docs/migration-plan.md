@@ -84,8 +84,11 @@ The migration does not include map datasets, generated RBT styles or reference b
   An unexpected original-checkout reversion was restored and verified; see the execution report.
 - Phase 2 complete: older-only features and incompatible options are documented. Saddle handling
   was identified as a correctness gate before the planet run.
-- Phase 3 complete: inventoried import is staged in an isolated migration worktree. Phase 4
-  source-only validation is underway. No branch has been published and no planet run has started.
+- Phases 3-4 complete: inventoried import committed as `52a92b2`; isolated source-only build,
+  optional Python checks, fixtures, links and packaging inventory pass locally. Remote CI is pending.
+- Phase 5 complete: saddle correction committed as `9866a3b`; full suite, real-data quality,
+  native rendering, recovery and storage pilot pass. Independent full-planet deployment prepared;
+  phase 6 begins only after the final runtime/input identity and capacity checks.
 - Detailed execution evidence is kept outside Git under `out/migration-20261017/`; a concise
   migration report will record final paths, gates, compatibility decisions and remaining work.
 

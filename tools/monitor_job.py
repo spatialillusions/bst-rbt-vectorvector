@@ -28,6 +28,7 @@ def main():
     p.add_argument("--abort-after-done", type=int)
     p.add_argument("--shard-dir", type=Path)
     p.add_argument("--min-available-mib", type=int, default=0)
+    p.add_argument("--min-disk-free-gib", type=float, default=0, help="Stop this child after five samples below this free-space floor on any watched volume")
     p.add_argument("--disk-path", type=Path, action="append", default=[], help="Also sample free bytes on these volumes")
     p.add_argument("--low-memory-priority", action="store_true", help="Use very low memory priority for this child only, to limit scan-cache crowding")
     p.add_argument("--low-memory-priority-after", help="Lower this child's memory priority only after this text appears in its log")
@@ -42,6 +43,8 @@ def main():
     aborted = False
     low_memory = 0
     memory_stopped = False
+    low_disk = 0
+    disk_stopped = False
     priority_lowered = False
     watched = {str(path.resolve().anchor) for path in [Path.cwd(), Path(tempfile.gettempdir()), *a.disk_path]}
     with (a.out / "run.log").open("w", encoding="utf-8") as log:
@@ -95,6 +98,12 @@ def main():
                     log.write("MONITOR: stopping this job after five low-physical-memory samples\n")
                     log.flush()
                     process.terminate()
+                low_disk = low_disk + 1 if any(free < a.min_disk_free_gib * 2**30 for free in s["disk_free_bytes"].values()) else 0
+                if a.min_disk_free_gib and low_disk >= 5 and not disk_stopped:
+                    disk_stopped = True
+                    log.write("MONITOR: stopping this job after five low-disk-space samples\n")
+                    log.flush()
+                    process.terminate()
                 if a.abort_after_done and a.shard_dir and not aborted:
                     if len(list(a.shard_dir.glob("*.done"))) >= a.abort_after_done:
                         aborted = True
@@ -117,6 +126,7 @@ def main():
               "cpu_seconds": samples[-1]["cpu_s"], "logical_read_gib": samples[-1]["read_bytes"] / 2**30,
               "logical_write_gib": samples[-1]["write_bytes"] / 2**30}
     result["minimum_disk_free_gib"] = {path: min(s["disk_free_bytes"][path] for s in samples) / 2**30 for path in watched}
+    result["disk_floor_stop"] = disk_stopped
     result["low_memory_priority"] = priority_lowered
     result["memory_priority_after_marker"] = a.low_memory_priority_after
     result["peak_system_cache_resident_mib"] = max(s.get("system_cache_resident_bytes", 0) for s in samples) / 2**20

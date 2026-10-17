@@ -36,19 +36,77 @@ Subsequent phases recheck the original checkout rather than assuming isolation.
 
 ## Validation gates
 
-The first source-only build reported 147 tests, zero failures/errors and four data-dependent or
-diagnostic skips. All 258 rebuilt project classes match the corresponding F: frozen pilot classes
-byte for byte. The older build directory contained 19 additional stale classes; the fresh build
-  does not carry those into the migrated artifact. The helper's corrected invocation completed
-  `verify` with exit 0: 143 tests passed and four skipped. Python syntax, tracked-file inventory,
-  whitespace and local Markdown links pass; generated-evidence links were converted to plain
-  local paths so they do not become broken GitHub links. Six Python regressions are checked
-  separately from Maven. Linux/GitHub CI remains a later remote-review gate.
+The source-only import build completed through the corrected helper with exit 0: 143 tests
+passed, four skipped, zero failures/errors. All 258 rebuilt project classes match corresponding
+F: frozen pilot classes byte for byte. The older build directory contained 19 additional stale
+classes; the fresh artifact does not carry them forward. Import commit: `52a92b2`.
 
-The older saddle-cell regressions exposed a correctness gap in both contour generators. This
-is a **planet gate**, not a deferred compatibility flag. It will be handled in a separate commit,
-with focused failing/passing tests and representative output validation. Until that gate is
-satisfied, do not freeze a planet executable or start the full production pilot.
+The [saddle-cell correction](saddle-cell-correction.md) is separate commit `9866a3b`. Four focused
+regressions failed before the fix. The complete corrected suite reports **152 tests: 148 passed,
+four skipped**, zero failures/errors; all five focused tests and four upstream terrain goldens pass.
 
-No remote branch, PR, release or `main` merge has been published. Full planet execution and
-local workspace cutover remain later gated phases of the migration plan.
+Python syntax, tracked-file inventory, whitespace and local links pass. Ignored generated-output
+links were converted to plain local paths for GitHub. Eleven optional Python regressions pass,
+including five tests for the bounded full merge verifier. Linux/GitHub CI remains a remote gate.
+
+## Migrated executable pilot: passed
+
+Frozen JAR SHA-256:
+`7455d9e4c95b6e0ccfc628d79df4256a0780b02d56d5e3a541f8bb558301a4f8`.
+Real-data evidence is under `out/migration-20261017/validation/` in the original F: workspace.
+
+- Global-index quality generation completed in 60.66 seconds with 4,686.8 MiB peak RSS.
+- **229,956 contour features and 8,243 buffered peak occurrences** pass schema checks. Peak
+  layer bytes are unchanged in all 1,060 selected tile positions.
+- The saddle correction changes 166 of those tile payloads and joins formerly fragmented paths.
+  It is not presented as byte-identical arbitrary-terrain output. The real-style Iceland and
+  Greenland images are pixel-identical to the earlier candidate; Alps and Matterhorn differ in
+  eight pixels each out of 491,520. No visible degradation was found in the inspected renders.
+- All 188 flagged boundary edges were reviewed geometrically: zero elevation-matched strip
+  length falls outside the neighbor's one-pixel buffered geometry. The previous small ice-split
+  discrepancy remains 71.56 extent units in aggregate; it did not worsen.
+- Forced interruption/resume reused an unchanged completed shard. All 160 resulting raw tile
+  payloads match the quality build. The new full copy-order verifier also passed on those two
+  completed shard databases and their merged archive.
+- The same 11,400-position global storage sample estimates **51.92 GiB** for the archive and
+  **140.68 GiB** working capacity including margin/scratch. Keep the rounded 141 GiB budget.
+  Merge bytecode is unchanged from the imported implementation; the prior 40 GiB test remains
+  applicable. The new estimate remains smaller than the sampled RBT contour-only archive.
+
+## Long-run controls and prepared deployment
+
+The portable environment helpers now tolerate a missing `.tools` directory and retain an
+external JDK/Maven setup. Windows launcher dry run and Git Bash JDK 21 checks pass. Launcher
+rebuilds use the checked-in build helper.
+
+The monitor can stop only its own child after five low-disk samples, in addition to the existing
+RAM guard. A normal child exits successfully; an intentionally impossible disk reserve stops
+the disposable test child and records `disk_floor_stop=true`. No user process is stopped.
+
+The full copy-order verifier opens at most two databases at once, checks destination integrity
+and its unique index, validates every completion stamp, and compares **every raw key/payload**
+against the frozen merger's y/x-shard and rowid copy order. Five tests cover correct copying,
+missing markers, changed payloads, extra rows and unexpected shard counts. Verification never
+deletes an archive. This avoids opening thousands of simultaneous shard connections.
+
+An independent deployment is prepared at `F:/vectorvector-planet-20261017`, with copied and
+hashed runtime files, filtered OSM/WKB and pilot-reference inputs. The 663 GB Mapterhorn archive
+stays read-only on D:. No build artifacts or test data are committed to Git. Its immutable-input
+check passes. Production RAM/disk guards are 1,024 MiB available and 20 GiB free on output/temp
+volumes; the frozen runner records commands/status and supports exact resume and verification-only
+retry. It automatically verifies the complete merge and compares the 1,060 pilot positions after
+generation. Full-planet completion is still required before release.
+
+## Remaining gates
+
+- Finish and review the full planet production run and its automatic integrity/payload/sample checks.
+- Before binary publication, review third-party notices: the inherited shade filters exclude generic
+  dependency `META-INF/LICENSE`/`NOTICE` files, and the current JAR contains only two SQLite-specific
+  license resources. The root upstream license is preserved; binary notice packaging needs separate
+  completion. Do not claim a release packaging review has passed.
+- Run GitHub/Linux CI and finalize version/release notes after an authorized remote push.
+- Review and explicitly authorize merge/publication and eventual local workspace cutover.
+
+No remote branch, PR, release or `main` merge has been published. The original checkout's WIP
+remains preserved and verified. Production corrections now live in the isolated migration worktree;
+the original F: source is retained as earlier evidence, not copied over the migration branch again.

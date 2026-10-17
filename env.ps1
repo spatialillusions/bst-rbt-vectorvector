@@ -1,5 +1,11 @@
 # Dot-source to use the project-local toolchain:  . .\env.ps1
-$root = $PSScriptRoot
-$env:JAVA_HOME = (Get-ChildItem "$root\.tools" -Directory -Filter 'jdk-21*' | Select-Object -First 1).FullName
-$mvnHome = (Get-ChildItem "$root\.tools" -Directory -Filter 'apache-maven-*' | Select-Object -First 1).FullName
-$env:PATH = "$env:JAVA_HOME\bin;$mvnHome\bin;$root\.tools\bin;$env:PATH"
+$localToolRoot = Join-Path $PSScriptRoot '.tools'
+if (Test-Path -LiteralPath $localToolRoot -PathType Container) {
+    $localJdk21 = Get-ChildItem $localToolRoot -Directory -Filter 'jdk-21*' | Select-Object -First 1
+    if ($localJdk21) { $env:JAVA_HOME = $localJdk21.FullName }
+    $localMavenDirectory = Get-ChildItem $localToolRoot -Directory -Filter 'apache-maven-*' | Select-Object -First 1
+    if ($localMavenDirectory) { $env:PATH = "$($localMavenDirectory.FullName)\bin;$env:PATH" }
+    $env:PATH = "$localToolRoot\bin;$env:PATH"
+}
+elseif ($env:JDK21_HOME) { $env:JAVA_HOME = $env:JDK21_HOME }
+if ($env:JAVA_HOME) { $env:PATH = "$env:JAVA_HOME\bin;$env:PATH" }
