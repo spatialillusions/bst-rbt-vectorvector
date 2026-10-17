@@ -97,6 +97,32 @@ volumes; the frozen runner records commands/status and supports exact resume and
 retry. It automatically verifies the complete merge and compares the 1,060 pilot positions after
 generation. Full-planet completion is still required before release.
 
+## Phase 6: full planet running
+
+Started **17 October 2026 at 14:11 Europe/Stockholm** with frozen runtime SHA above. The runner
+is a hidden independent process, so closing this chat does not stop it. It uses eight workers,
+16 GiB G1 and 64 by 64 z6 partitions for RBT z9-13. No 10 m/z14 output is enabled.
+
+Local operational files:
+
+- Live stage: `F:/vectorvector-planet-20261017/status.json`.
+- Telemetry: `F:/vectorvector-planet-20261017/monitor/generation-0001/latest.json`.
+- Generation log: `F:/vectorvector-planet-20261017/monitor/generation-0001/run.log`.
+- Frozen command and identities: `F:/vectorvector-planet-20261017/manifest.json`.
+- Output/shards: `F:/vectorvector-planet-20261017/tiles/`.
+
+Resume after a recorded stop with the same Python and runner:
+
+```powershell
+& 'C:\Users\DarkStar\AppData\Local\Programs\Python\Python314\python.exe' F:\vectorvector-planet-20261017\runtime\run.py
+```
+
+The runner rejects a concurrent invocation and changed runtime/input identities. Use
+`--verify-only` only after generation has completed and a later verification stage stopped.
+Do not use the development launcher or rebuild the frozen runtime for a retry. Final status
+`planet-complete-and-verified` requires the complete raw-payload merge check and all 1,060 pilot
+tile comparisons; `planet-generation-running` is not a success result. No planet ETA is inferred.
+
 ## Remaining gates
 
 - Finish and review the full planet production run and its automatic integrity/payload/sample checks.

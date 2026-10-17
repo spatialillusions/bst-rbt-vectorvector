@@ -88,7 +88,8 @@ The migration does not include map datasets, generated RBT styles or reference b
   optional Python checks, fixtures, links and packaging inventory pass locally. Remote CI is pending.
 - Phase 5 complete: saddle correction committed as `9866a3b`; full suite, real-data quality,
   native rendering, recovery and storage pilot pass. Independent full-planet deployment prepared;
-  phase 6 begins only after the final runtime/input identity and capacity checks.
+  phase 6 started at 14:11 Europe/Stockholm after runtime/input identity and capacity checks.
+  The full planet is running with RAM/disk guards and automatic post-build verification.
 - Detailed execution evidence is kept outside Git under `out/migration-20261017/`; a concise
   migration report will record final paths, gates, compatibility decisions and remaining work.
 
