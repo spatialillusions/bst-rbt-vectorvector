@@ -45,8 +45,8 @@ class MarchingSquares(
                     if (topRight > contourLevel) caseIndex = caseIndex or 4
                     if (topLeft > contourLevel) caseIndex = caseIndex or 8
 
-                    val contour = handleCase(x, y, bottomLeft, bottomRight, topRight, topLeft, contourLevel, caseIndex)
-                    if (contour.isNotEmpty()) {
+                    val contours = handleCase(x, y, bottomLeft, bottomRight, topRight, topLeft, contourLevel, caseIndex)
+                    for (contour in contours) {
                         var firstContour = findContour(endToContour, contour.first())
                         var lastContour = findContour(endToContour, contour.last())
 
@@ -127,7 +127,7 @@ class MarchingSquares(
         topLeft: Elevation,
         contourLevel: Int,
         caseIndex: Int
-    ): List<DoublePoint> {
+    ): List<List<DoublePoint>> {
         val contour = mutableListOf<DoublePoint>()
 
         fun interpolate(p1: DoublePoint, p2: DoublePoint, v1: Elevation, v2: Elevation): DoublePoint {
@@ -175,9 +175,16 @@ class MarchingSquares(
                 contour.add(interpolate(pointTopRight, pointBottomRight, topRight, bottomRight))
                 contour.add(interpolate(pointTopLeft, pointTopRight, topLeft, topRight))
             }
-            5 -> {
-                contour.add(interpolate(pointBottomLeft, pointBottomRight, bottomLeft, bottomRight))
-                contour.add(interpolate(pointTopRight, pointTopLeft, topRight, topLeft))
+            5, 10 -> {
+                val bottom = interpolate(pointBottomLeft, pointBottomRight, bottomLeft, bottomRight)
+                val right = interpolate(pointBottomRight, pointTopRight, bottomRight, topRight)
+                val top = interpolate(pointTopLeft, pointTopRight, topLeft, topRight)
+                val left = interpolate(pointBottomLeft, pointTopLeft, bottomLeft, topLeft)
+                return if (saddleBottomToRight(bottomLeft.meters, bottomRight.meters, topRight.meters, topLeft.meters, contourLevel)) {
+                    listOf(listOf(bottom, right), listOf(left, top))
+                } else {
+                    listOf(listOf(bottom, left), listOf(right, top))
+                }
             }
             6 -> {
                 contour.add(interpolate(pointBottomLeft, pointBottomRight, bottomLeft, bottomRight))
@@ -194,10 +201,6 @@ class MarchingSquares(
             9 -> {
                 contour.add(interpolate(pointBottomLeft, pointBottomRight, bottomLeft, bottomRight))
                 contour.add(interpolate(pointTopLeft, pointTopRight, topLeft, topRight))
-            }
-            10 -> {
-                contour.add(interpolate(pointBottomLeft, pointTopLeft, bottomLeft, topLeft))
-                contour.add(interpolate(pointBottomRight, pointTopRight, bottomRight, topRight))
             }
             11 -> {
                 contour.add(interpolate(pointBottomRight, pointTopRight, bottomRight, topRight))
@@ -217,7 +220,7 @@ class MarchingSquares(
             }
         }
 
-        return contour
+        return if (contour.isEmpty()) emptyList() else listOf(contour)
     }
 
     private fun contourLevels(interval: Int): List<Int> {

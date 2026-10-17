@@ -16,7 +16,7 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 /**
- * Guards the default (non-RBT) contour pipeline: output bytes must stay identical to upstream vectorvector.
+ * Guards the default pipeline on fixed smooth terrain against unrelated changes. Saddle cells are covered separately.
  * The expected hashes were recorded on the unmodified upstream code.
  */
 class DefaultContourGoldenTest {

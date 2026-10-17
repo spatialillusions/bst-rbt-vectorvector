@@ -89,9 +89,13 @@ class FastIsolines(
             4, 11 -> out.add(right(), top())
             6, 9 -> out.add(bottom(), top())
             7, 8 -> out.add(left(), top())
-            // saddles: same choice as MarchingSquares (one segment)
-            5 -> out.add(bottom(), top())
-            10 -> out.add(left(), right())
+            5, 10 -> if (saddleBottomToRight(bl, br, tr, tl, level)) {
+                out.add(bottom(), right())
+                out.add(left(), top())
+            } else {
+                out.add(bottom(), left())
+                out.add(right(), top())
+            }
         }
     }
 
