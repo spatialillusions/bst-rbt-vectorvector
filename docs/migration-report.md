@@ -136,3 +136,35 @@ tile comparisons; `planet-generation-running` is not a success result. No planet
 No remote branch, PR, release or `main` merge has been published. The original checkout's WIP
 remains preserved and verified. Production corrections now live in the isolated migration worktree;
 the original F: source is retained as earlier evidence, not copied over the migration branch again.
+
+## Repository-only build, example and verification
+
+The default example now uses only the committed PMTiles fixture, without OSM or
+external RBT inputs. `tools/generate_example.py` creates a fresh output directory;
+`tools/verify_contours.py` opens MBTiles read-only and streams structural/schema
+checks independently of a reference archive. Its small optional dependency list
+is separate from the analysis requirements. CI now generates and verifies this
+example after Maven verification.
+
+The original checked-in `styles/contours/style.json` and default TileServer config
+use only generated contours/optional peaks, with no basemap, fonts, sprites or
+remote style assets. RBT research comparisons remain optional; extraction and
+rendering require explicitly supplied reference paths, and the comparison-style
+generator no longer downloads an upstream style automatically. Historical RBT
+reports are retained as provenance, not setup prerequisites.
+
+Local verification on 17 October 2026:
+
+- JDK 21 `verify` passed in the isolated worktree with no regional datasets:
+  152 tests reported, 148 passed, four optional local-data/manual tests skipped.
+- Eight self-contained Python regression tests passed, including invalid keys,
+  duplicate keys, invalid index/interval/ice flag, empty output and style isolation.
+- The example ran from outside the checkout using its committed input: three
+  tiles, 76 contour features, and reference-free validation passed.
+- TileServer GL 5.6.0 served the default config and rendered a 768?640 PNG using
+  only the generated archive. The image was visually inspected; no RBT assets
+  were configured or loaded. Evidence is in `out/standalone-style-check/`.
+
+These changes affect development tools/docs/styles only. The running full-planet
+job continues using its frozen runtime and independent verification inputs.
+Linux/GitHub CI execution remains pending publication of the branch.

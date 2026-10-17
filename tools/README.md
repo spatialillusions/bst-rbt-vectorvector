@@ -3,6 +3,19 @@
 The Java CLI needs JDK 21; Python is optional. Run tools from the project root. Do not treat
 research scripts as supported production CLI options.
 
+## Repository-only workflow
+
+`python tools/generate_example.py` generates contours from committed elevation
+fixtures after the Java build. It uses only Python's standard library. Install
+`requirements-verify.txt`, then run `python tools/verify_contours.py <archive>`
+for streaming, read-only schema/integrity checks with no RBT data. Run its tests
+with `python -m unittest discover -s tools -p test_verify_contours.py -v`.
+The default style in `styles/` likewise uses only our generated output.
+
+RBT extraction, tuning, comparison and comparison-rendering scripts are optional
+research tools. They require separately supplied reference inputs; historical
+reports and machine-specific benchmark defaults are not setup requirements.
+
 ## Python setup
 
 The analysis dependencies in `requirements.txt` are the versions tested here with Python 3.14.
@@ -35,7 +48,7 @@ a fresh output directory, preserving earlier results.
 | Compare contour-only output size with RBT | `compare_contour_sizes.py` | Standard library; same stratified sample, encoded layers copied verbatim and equally compressed |
 | Verify every merged key/payload against completed shards | `verify_shard_merge.py` | Standard library; frozen merger copy order, full destination integrity, completion stamps; at most two open databases |
 | Measure global-index, recovery and quality pilots | `run_planet_pilot.py`, `monitor_job.py` | Windows telemetry; frozen executable, fresh output directories, optional low-memory stop |
-| Check seams, ice and peak output; render the real style | `rbt_reference/check_planet_pilot.py`, `render_planet_pilot.py` | Analysis dependencies; rendering also requires TileServer GL and RBT data/styles/fonts |
+| Optional reference comparisons: seams, ice and peak output; render RBT comparison style | `rbt_reference/check_planet_pilot.py`, `render_planet_pilot.py` | Analysis dependencies; rendering also requires TileServer GL and RBT data/styles/fonts |
 | Investigate 10 m / z14 contours | `ContourDetailProbe.java`, `investigate_contour_detail.py`, `analyze_contour_detail.py` | Research-only harness; production option not implemented; see the investigation report |
 | Diagnose terrain/reference and glacier clipping differences | `ContourSurfaceProbe.java`, `GlacierClipProbe.java` | Research harnesses using real inputs; clipping probe exports local masks for geometric comparison |
 

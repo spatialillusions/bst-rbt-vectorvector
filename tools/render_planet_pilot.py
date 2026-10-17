@@ -24,7 +24,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("candidate", type=Path)
     parser.add_argument("--out", type=Path, required=True)
-    parser.add_argument("--rbt-root", type=Path, default=Path("H:/RBT/tileserver-gl"))
+    parser.add_argument("--rbt-root", type=Path, required=True)
     parser.add_argument("--node", type=Path, default=Path("C:/Program Files/nodejs/node.exe"))
     parser.add_argument("--server", type=Path, default=Path.home() / "AppData/Roaming/npm/node_modules/tileserver-gl/src/main.js")
     parser.add_argument("--port", type=int, default=8097)

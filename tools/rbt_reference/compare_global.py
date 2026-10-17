@@ -1,6 +1,6 @@
 """Prepare bounded global RBT samples, then compare a generated candidate.
 
-python tools/rbt_reference/compare_global.py prepare --reference H:/RBT/tileserver-gl/data/RBT.mbtiles
+python tools/rbt_reference/compare_global.py prepare --reference /path/to/optional-reference.mbtiles
 python tools/rbt_reference/compare_global.py compare --candidate out/rbt-global/candidate/contours.mbtiles
 
 Requires the same numpy/shapely/mapbox-vector-tile dependencies as compare.py;
@@ -170,9 +170,11 @@ def compare(a):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", choices=("prepare", "compare"))
-    parser.add_argument("--reference", default="H:/RBT/tileserver-gl/data/RBT.mbtiles")
+    parser.add_argument("--reference", help="Required for prepare: optional external reference archive")
     parser.add_argument("--candidate", default="out/rbt-global/candidate/contours.mbtiles")
     parser.add_argument("--jar", default="target/vectorvector-cli.jar")
     parser.add_argument("--out", default="out/rbt-global")
     args = parser.parse_args()
+    if args.action == "prepare" and not args.reference:
+        parser.error("prepare requires an explicit --reference archive")
     (prepare if args.action == "prepare" else compare)(args)

@@ -1,0 +1,166 @@
+{
+  "version": 8,
+  "name": "vectorvector contours",
+  "center": [
+    -16.675,
+    64.0
+  ],
+  "zoom": 10,
+  "sources": {
+    "CONTOURS": {
+      "type": "vector",
+      "url": "mbtiles://{CONTOURS}"
+    }
+  },
+  "layers": [
+    {
+      "id": "background",
+      "type": "background",
+      "paint": {
+        "background-color": "#f5f1e8"
+      }
+    },
+    {
+      "id": "contours-0-minor",
+      "type": "line",
+      "source": "CONTOURS",
+      "source-layer": "contours",
+      "filter": [
+        "all",
+        [
+          "==",
+          [
+            "get",
+            "is_ice"
+          ],
+          0
+        ],
+        [
+          "<",
+          [
+            "get",
+            "index"
+          ],
+          200
+        ]
+      ],
+      "layout": {
+        "line-join": "round",
+        "line-cap": "round"
+      },
+      "paint": {
+        "line-color": "#95704e",
+        "line-width": 0.65
+      }
+    },
+    {
+      "id": "contours-0-major",
+      "type": "line",
+      "source": "CONTOURS",
+      "source-layer": "contours",
+      "filter": [
+        "all",
+        [
+          "==",
+          [
+            "get",
+            "is_ice"
+          ],
+          0
+        ],
+        [
+          ">=",
+          [
+            "get",
+            "index"
+          ],
+          200
+        ]
+      ],
+      "layout": {
+        "line-join": "round",
+        "line-cap": "round"
+      },
+      "paint": {
+        "line-color": "#95704e",
+        "line-width": 1.25
+      }
+    },
+    {
+      "id": "contours-1-minor",
+      "type": "line",
+      "source": "CONTOURS",
+      "source-layer": "contours",
+      "filter": [
+        "all",
+        [
+          "==",
+          [
+            "get",
+            "is_ice"
+          ],
+          1
+        ],
+        [
+          "<",
+          [
+            "get",
+            "index"
+          ],
+          200
+        ]
+      ],
+      "layout": {
+        "line-join": "round",
+        "line-cap": "round"
+      },
+      "paint": {
+        "line-color": "#568eaa",
+        "line-width": 0.65
+      }
+    },
+    {
+      "id": "contours-1-major",
+      "type": "line",
+      "source": "CONTOURS",
+      "source-layer": "contours",
+      "filter": [
+        "all",
+        [
+          "==",
+          [
+            "get",
+            "is_ice"
+          ],
+          1
+        ],
+        [
+          ">=",
+          [
+            "get",
+            "index"
+          ],
+          200
+        ]
+      ],
+      "layout": {
+        "line-join": "round",
+        "line-cap": "round"
+      },
+      "paint": {
+        "line-color": "#568eaa",
+        "line-width": 1.25
+      }
+    },
+    {
+      "id": "peaks",
+      "type": "circle",
+      "source": "CONTOURS",
+      "source-layer": "peaks",
+      "paint": {
+        "circle-radius": 2,
+        "circle-color": "#55473c"
+      }
+    }
+  ]
+}

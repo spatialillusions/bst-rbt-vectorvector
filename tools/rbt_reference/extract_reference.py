@@ -1,7 +1,7 @@
 """Extract an Iceland subset of the RBT reference mbtiles (read-only).
 
 Usage:
-    python extract_reference.py [--src H:/RBT/tileserver-gl/data/RBT.mbtiles]
+    python extract_reference.py --src /path/to/optional-reference.mbtiles
                                 [--out data/iceland/rbt-reference-iceland.mbtiles]
                                 [--all-layers]
 
@@ -122,7 +122,7 @@ def process_tile(data, keep):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--src", default="H:/RBT/tileserver-gl/data/RBT.mbtiles")
+    ap.add_argument("--src", required=True)
     ap.add_argument("--out", default="data/iceland/rbt-reference-iceland.mbtiles")
     ap.add_argument("--all-layers", action="store_true")
     ap.add_argument("--minzoom", type=int, default=0)

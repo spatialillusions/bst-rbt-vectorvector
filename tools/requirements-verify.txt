@@ -1,0 +1,2 @@
+# Optional reference-free MVT validation; the Java build/example do not need Python packages.
+mapbox-vector-tile==2.2.0

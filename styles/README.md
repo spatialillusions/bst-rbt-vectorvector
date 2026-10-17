@@ -1,52 +1,34 @@
-# Comparison style
+# Standalone contour style
 
-`RBT-TOPO-contours/style.json` is RBT-TOPO with its four `elevationContour--*` layers reading our
-`contours.mbtiles` (source `CONTOURS`). The original RBT contour layers are kept as `rbt--elevationContour--*`
-in magenta and hidden by default; toggle their visibility to overlay both. A `peaks` circle + label layer
-reads `CONTOURS/peaks`.
+`contours/style.json` is an original, checked-in MapLibre style. It uses only
+`CONTOURS/contours` and optional `CONTOURS/peaks` from our generated MBTiles.
+Brown lines show land contours, blue lines show ice contours; index contours are
+thicker. Peak points are shown without labels. No RBT archive, terrain archive,
+sprites or font files are needed. This is a contour preview, without a basemap.
 
-Regenerate it (and copy the sprites) with:
+From the repository root, build and run the example in the main README, then:
 
-```
-python tools/make_compare_style.py
-```
-
-`style.json` and the sprites are generated, not committed.
-The default RBT tileserver root is `H:/RBT/tileserver-gl`; override it with `--rbt-root <directory>`
-or the `RBT_TILESERVER_ROOT` environment variable. `--style` and `--sprites` can also be supplied
-individually. If the style is absent locally, the script retrieves the upstream RBT style.
-
-## Running tileserver-gl
-
-`config.json` reads `RBT.mbtiles`, `TERRAIN.mbtiles` and the fonts from `H:\RBT\tileserver-gl` (read-only) through
-two directory junctions inside `out/`, because tileserver-gl cannot join absolute paths on another drive. Our tiles
-come from `out/contours/contours.mbtiles`. Create the junctions once from the project root;
-only the junction entries inside this project's `out/` directory are created:
-
-```powershell
-New-Item -ItemType Directory -Force out
-New-Item -ItemType Junction -Path out/rbt-data -Target H:/RBT/tileserver-gl/data
-New-Item -ItemType Junction -Path out/rbt-fonts -Target H:/RBT/tileserver-gl/fonts
+```sh
+npm install --global tileserver-gl@5.6.0
+tileserver-gl --config styles/config.json --bind 127.0.0.1 --port 8080
 ```
 
-Then:
+Open http://localhost:8080/styles/contours/ . The configured map starts at the
+small committed fixture near Iceland, zoom 10. TileServer GL has native system
+dependencies; use its official installation instructions for your platform.
+The server's browser viewer needs its normal JavaScript dependencies. The style
+itself uses no remote assets. To display another generated archive, edit the
+single `data.CONTOURS.mbtiles` path in `config.json` and move the map to its area.
+The MBTiles path is relative to the repository root (`mbtiles: ".."` from styles).
+For another MapLibre application, replace `mbtiles://{CONTOURS}` with the HTTP
+TileJSON URL exposed by your tile server.
 
-```
-cd styles
-tileserver-gl --config config.json --port 8090
-```
+## Optional RBT research comparison
 
-Then open http://localhost:8090/styles/RBT-TOPO-contours/#10/64.0/-16.7 (Vatnajökull / Öræfajökull).
-
-The fonts `NGATopo_Cn_ita` and `NotoSansItalic` must exist in the configured fonts folder.
-
-Equivalent entries for an existing tileserver-gl `config.json`:
-
-```json
-"data": {
-  "CONTOURS": { "mbtiles": "contours.mbtiles" }
-},
-"styles": {
-  "RBT-TOPO-contours": { "style": "RBT-TOPO-contours/style.json", "serve_data": true, "serve_rendered": true }
-}
-```
+`tools/make_compare_style.py --rbt-root <your-tileserver-directory>` generates
+an ignored comparison style from your separately supplied RBT-TOPO style/sprites.
+It is not the default example and is not needed to build, test, generate or
+verify contours. Research rendering via `tools/render_planet_pilot.py` likewise
+requires an explicit `--rbt-root`; its configuration is created separately under
+its requested output directory. Historical comparison reports describe the
+external datasets used at the time; those datasets are not included here.

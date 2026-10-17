@@ -5,10 +5,10 @@
 * A `peaks` layer (circle + label) reads CONTOURS/peaks.
 
 Usage:
-    python tools/make_compare_style.py [--style <RBT-TOPO style.json>] [--sprites <sprite directory>]
+    python tools/make_compare_style.py --rbt-root <directory> [--style <RBT-TOPO style.json>] [--sprites <sprite directory>]
 
-The RBT-TOPO style is read from the supplied tileserver root, or downloaded from
-github.com/ReleasableBasemapTiles/RBT-Public when that is absent. Sprites are copied next to the style.
+Optional research tool: the RBT-TOPO style and sprites must be supplied explicitly.
+For normal use, see the standalone styles/contours/style.json.
 """
 import argparse
 import copy
@@ -16,28 +16,22 @@ import glob
 import json
 import os
 import shutil
-import urllib.request
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "styles", "RBT-TOPO-contours")
-URL = "https://raw.githubusercontent.com/ReleasableBasemapTiles/RBT-Public/main/current-release/styles/RBT-TOPO/style.json"
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--rbt-root", default=os.environ.get("RBT_TILESERVER_ROOT", "H:/RBT/tileserver-gl"))
+    ap.add_argument("--rbt-root", required=True, help="Optional comparison only: your RBT TileServer directory")
     ap.add_argument("--style")
     ap.add_argument("--sprites")
     a = ap.parse_args()
     local = os.path.join(a.rbt_root, "styles", "RBT-TOPO")
     a.style = a.style or os.path.join(local, "style.json")
     a.sprites = a.sprites or local
-    if os.path.exists(a.style):
-        with open(a.style, encoding="utf-8") as f:
-            style = json.load(f)
-    else:
-        with urllib.request.urlopen(URL) as r:
-            style = json.loads(r.read().decode("utf-8"))
+    with open(a.style, encoding="utf-8") as f:
+        style = json.load(f)
 
     style["name"] = "RBT-TOPO with vectorvector contours"
     style["sources"]["CONTOURS"] = {"type": "vector", "url": "mbtiles://{CONTOURS}"}

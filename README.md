@@ -29,6 +29,38 @@ running Maven. Set `JDK21_HOME` or pass `-JavaHome <jdk-directory>` when no loca
 The [migration plan](docs/migration-plan.md) and [compatibility notes](docs/migration-compatibility.md)
 describe the move from the older planet implementation and its changed options.
 
+## Repository-only example
+
+No RBT data is required to build, test, generate or verify contours. After building,
+run this small example using the committed PMTiles fixture (Python 3, standard
+library only; `java` must select JDK 21):
+
+```sh
+python tools/generate_example.py
+```
+
+It creates `out/example-contours/contours.mbtiles` with z9?10 contours near
+16.675? W, 64? N. Use a fresh `--out <directory>` for another run; existing output
+is preserved. Pass `--java <jdk21-java-executable>` to select a JDK explicitly.
+The fixture is deliberately tiny and does not represent regional coverage.
+No OSM input is needed; glaciers and peaks are optional enrichments.
+
+To verify the generated RBT-profile output independently of any reference archive:
+
+```sh
+python -m pip install -r tools/requirements-verify.txt
+python tools/verify_contours.py out/example-contours/contours.mbtiles
+```
+
+The validator streams every tile and checks SQLite integrity, keys, MVT decoding,
+contour fields, intervals and buffered geometry. It checks structure, not terrain
+accuracy or seam quality. CI runs this same example and validator using only
+committed inputs. The Java tests also use committed/synthetic fixtures; optional
+regional integration tests skip when their local elevation/OSM inputs are absent.
+See the [standalone style](styles/README.md) to display contours without RBT
+basemap files, sprites or fonts. Real regional/planet builds need elevation data
+as described below, but do not need an RBT reference archive.
+
 ## Inputs and outputs
 
 | Input | CLI selection |
@@ -126,9 +158,9 @@ applies to the default profile; use `--rbtSmoothing` to adjust RBT smoothing.
 ### Display the contours
 
 Use the RBT-style filters on `index` and `is_ice`; the legacy `level` filters do not apply.
-The [comparison style instructions](styles/README.md) show how to generate a style and compare
-our contours with the original RBT archive. This CLI emits contours and optional peaks, not
-RBT's complete basemap layers.
+The [standalone style instructions](styles/README.md) show how to display generated contours
+with no external RBT data or assets. Optional RBT comparison tools are documented separately
+there. This CLI emits contours and optional peaks.
 
 Mapterhorn and OSM attribution links are written into MBTiles metadata when those inputs are used.
 Retain attribution to [Mapterhorn and its sources](https://mapterhorn.com/attribution/) and

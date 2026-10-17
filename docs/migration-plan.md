@@ -94,3 +94,13 @@ The migration does not include map datasets, generated RBT styles or reference b
   migration report will record final paths, gates, compatibility decisions and remaining work.
 
 Current progress and any deviations are in [migration-report.md](migration-report.md).
+
+## Repository-only baseline
+
+Building, tests, structural verification and example styling must work without
+external RBT data/assets. The README's committed-fixture example and
+`tools/verify_contours.py` are the default reproducible path; CI exercises both.
+The checked-in standalone style depends only on generated contours. External RBT
+comparisons remain optional research evidence, never a fresh-checkout prerequisite.
+Production regional/planet generation still requires user-supplied elevation data;
+OSM glacier/peak enrichment is optional.
