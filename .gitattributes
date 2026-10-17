@@ -1,0 +1,8 @@
+* text=auto eol=lf
+*.pmtiles binary
+*.pbf binary
+*.png binary
+*.jpeg binary
+*.jpg binary
+*.webp binary
+*.wkb binary

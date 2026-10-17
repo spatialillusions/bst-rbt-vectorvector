@@ -1,0 +1,7 @@
+# Optional analysis/visualization tools, tested with Python 3.14 on Windows.
+# The Java CLI, tile comparison and performance telemetry do not require these.
+numpy==2.5.0
+shapely==2.1.2
+mapbox-vector-tile==2.2.0
+matplotlib==3.11.2
+Pillow==12.3.0

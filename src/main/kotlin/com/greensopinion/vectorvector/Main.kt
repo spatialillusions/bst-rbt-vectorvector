@@ -3,6 +3,9 @@ package com.greensopinion.vectorvector
 import com.greensopinion.vectorvector.cli.CliOptions
 import com.greensopinion.vectorvector.cli.CliOutputFormat
 import com.greensopinion.vectorvector.cli.DataSourceFormat
+import com.greensopinion.vectorvector.cli.ProfileName
+import com.greensopinion.vectorvector.cli.parseCliOptions
+import com.greensopinion.vectorvector.cli.parseRbtSmoothing
 import com.greensopinion.vectorvector.elevation.Aw3d30ElevationDataStore
 import com.greensopinion.vectorvector.elevation.BlockElevationDataStore
 import com.greensopinion.vectorvector.elevation.BlockOffsetMapper
@@ -14,75 +17,90 @@ import com.greensopinion.vectorvector.elevation.Degrees
 import com.greensopinion.vectorvector.elevation.ElevationDataStore
 import com.greensopinion.vectorvector.elevation.SrtmBlockMapper
 import com.greensopinion.vectorvector.elevation.SrtmBlockStore
+import com.greensopinion.vectorvector.elevation.mapterhorn.MapterhornElevationDataStore
+import com.greensopinion.vectorvector.elevation.mapterhorn.MapterhornSourceSet
 import com.greensopinion.vectorvector.metrics.MetricsProvider
+import com.greensopinion.vectorvector.osm.GlacierIceSplitter
+import com.greensopinion.vectorvector.osm.GlacierIndex
+import com.greensopinion.vectorvector.osm.GlacierLoader
+import com.greensopinion.vectorvector.osm.GlacierWkbLoader
+import com.greensopinion.vectorvector.osm.PeakIndex
+import com.greensopinion.vectorvector.osm.PeakLoader
+import com.greensopinion.vectorvector.sink.contour.IceSplitter
+import com.greensopinion.vectorvector.pmtiles.PmtilesReader
+import com.greensopinion.vectorvector.pmtiles.rangeSourceFor
+import com.greensopinion.vectorvector.profile.ContourProfile
+import com.greensopinion.vectorvector.profile.DefaultProfile
+import com.greensopinion.vectorvector.profile.RbtProfile
 import com.greensopinion.vectorvector.metrics.PeriodicMetrics
 import com.greensopinion.vectorvector.metrics.SingletonMetricsProvider
 import com.greensopinion.vectorvector.repository.FilesystemTileRepository
 import com.greensopinion.vectorvector.repository.MbtilesMetadata
 import com.greensopinion.vectorvector.repository.MbtilesTileRepository
 import com.greensopinion.vectorvector.repository.TileRepository
-import com.greensopinion.vectorvector.sink.CompositeTileSink
 import com.greensopinion.vectorvector.sink.HillshadeRasterSink
 import com.greensopinion.vectorvector.sink.TerrariumSink
 import com.greensopinion.vectorvector.sink.VectorTileSink
-import com.greensopinion.vectorvector.sink.contour.ContourOptions
 import com.greensopinion.vectorvector.sink.hillshade.ResolutionPerPixel
+import com.greensopinion.vectorvector.sink.LayerSchema
 import com.greensopinion.vectorvector.sink.vectorSchema
 import com.greensopinion.vectorvector.util.closeSafely
 import io.github.oshai.kotlinlogging.KotlinLogging
 import picocli.CommandLine
+import java.io.Closeable
 import java.io.File
 import java.time.Duration
+import kotlin.system.exitProcess
 
 private val log = KotlinLogging.logger { }
 
 fun main(args: Array<String>) {
-    val options = parseCommandLine(args)
+    val options = try {
+        parseCliOptions(args)
+    } catch (e: Exception) {
+        System.err.println(e.message)
+        CommandLine.usage(CliOptions(), System.err)
+        exitProcess(2)
+    }
     if (options.help) {
         CommandLine.usage(CliOptions(), System.out)
         return
     }
     val metricsProvider = SingletonMetricsProvider()
+    val profile = contourProfile(options)
     val dataStore = cachingElevationDataStore(options, metricsProvider)
 
-    val sinkToRepository = tileSinkToRepository(
-        options,
-        dataStore,
-        metricsProvider,
-        tileRepositoryFactory(options, metricsProvider)
-    )
+    val peaks by lazy { peakIndex(options, dataStore) }
+    val ice by lazy { iceSplitterProvider(options) }
     try {
-        val sink = CompositeTileSink(sinkToRepository.keys.toList())
-        PeriodicMetrics(
-            interval = Duration.ofSeconds(30),
-            metrics = metricsProvider.metrics
-        ).use {
-            Processor(
-                tileRange = options.toTileRange(),
-                metricsProvider = metricsProvider,
-                sink = sink
-            ).process()
+        PeriodicMetrics(interval = Duration.ofSeconds(30), metrics = metricsProvider.metrics).use {
+            runTileBuild(options, metricsProvider, { buildIdentity(options, args) },
+                tileRepositoryFactory(options, metricsProvider)) { factory ->
+                tileSinkToRepository(options, profile, dataStore, metricsProvider, factory,
+                    { peaks }, { ice })
+            }
         }
     } finally {
-        closeSafely(sinkToRepository.values)
+        (dataStore as? Closeable)?.close()
     }
 }
 
 private fun tileRepositoryFactory(
     options: CliOptions,
     metricsProvider: SingletonMetricsProvider
-): (name: String, format: String) -> TileRepository =
+): RepositoryFactory =
     if (options.outputFormat == CliOutputFormat.mbtiles) {
-        { name, format ->
+        { name, format, layers ->
             createMbTilesRepository(
                 options,
                 format,
                 File(options.outputDir, "$name.mbtiles"),
-                metricsProvider
+                metricsProvider,
+                layers
             )
         }
     } else {
-        { _, _ -> FilesystemTileRepository(options.outputDir) }
+        { _, _, _ -> FilesystemTileRepository(options.outputDir) }
     }
 
 private fun cachingElevationDataStore(
@@ -93,6 +111,19 @@ private fun cachingElevationDataStore(
     val blockMapper: BlockOffsetMapper
     val store: BlockStore
     val cacheSize: Long
+    if (options.dataFormat == DataSourceFormat.mapterhorn) {
+        val readers = options.pmtiles.map { PmtilesReader(rangeSourceFor(it, options.pmtilesCacheDir)) }
+        readers.forEach {
+            val h = it.header
+            log.info { "${it.name}: z${h.minZoom}-${h.maxZoom} ${h.tileType} bounds=${h.minLon},${h.minLat},${h.maxLon},${h.maxLat}" }
+        }
+        return MapterhornElevationDataStore(
+            sources = MapterhornSourceSet(readers, cacheSize = options.elevationCacheTiles),
+            extent = options.resolvedElevationExtent,
+            metricsProvider = metricsProvider,
+            cacheSize = options.elevationCacheTiles
+        )
+    }
     if (options.dataFormat == DataSourceFormat.srtm) {
         blockSize = Degrees(5.0)
         store = SrtmBlockStore(
@@ -127,76 +158,88 @@ private fun cachingElevationDataStore(
 
 private fun tileSinkToRepository(
     options: CliOptions,
+    profile: ContourProfile,
     dataStore: ElevationDataStore,
     metricsProvider: SingletonMetricsProvider,
-    repositoryFactory: (name: String, format: String) -> TileRepository
+    repositoryFactory: RepositoryFactory,
+    peaksProvider: () -> PeakIndex?,
+    iceProvider: () -> ((TileId) -> IceSplitter?)
 ): Map<TileSink, TileRepository> {
     val tileExtent = 256
     val sinks = mutableMapOf<TileSink, TileRepository>()
-    if (options.terrarium) {
-        val repository = repositoryFactory("terrarium", "png")
-        sinks[TerrariumSink(
-            extent = tileExtent,
-            repository = repository,
-            elevationDataStore = dataStore,
-            metricsProvider = metricsProvider
-        )] = repository
+    val repositories = mutableListOf<TileRepository>()
+    val trackedFactory: RepositoryFactory = { name, format, layers ->
+        repositoryFactory(name, format, layers).also { repositories.add(it) }
     }
-    if (options.hillshadeRaster) {
-        val repository = repositoryFactory("hillshade", "png")
-        sinks[HillshadeRasterSink(
-            extent = tileExtent,
-            repository = repository,
-            elevationDataStore = dataStore,
-            resolutionPerPixel = ResolutionPerPixel(tileExtent = tileExtent, minZ = options.minZ, maxZ = options.maxZ),
-            metricsProvider = metricsProvider
-        )] = repository
+    try {
+        if (options.terrarium) {
+            val repository = trackedFactory("terrarium", "png", listOf())
+            sinks[TerrariumSink(
+                extent = tileExtent,
+                repository = repository,
+                elevationDataStore = dataStore,
+                metricsProvider = metricsProvider
+            )] = repository
+        }
+        if (options.resolvedHillshadeRaster) {
+            val repository = trackedFactory("hillshade", "png", listOf())
+            sinks[HillshadeRasterSink(
+                extent = tileExtent,
+                repository = repository,
+                elevationDataStore = dataStore,
+                resolutionPerPixel = ResolutionPerPixel(tileExtent = tileExtent, minZ = options.minZ, maxZ = options.maxZ),
+                metricsProvider = metricsProvider
+            )] = repository
+        }
+        if (options.vector) {
+            val peaks = peaksProvider()
+            val repository = trackedFactory(
+                options.resolvedVectorName, "pbf",
+                listOfNotNull(profile.contourLayer(options.minZ, options.maxZ), peaks?.schema())
+            )
+            sinks[VectorTileSink(
+                contourOptionsProvider = { tile -> profile.contourOptions(tile.id) },
+                iceSplitterProvider = iceProvider(),
+                gzip = options.resolvedGzipTiles,
+                extraLayers = listOfNotNull(peaks?.let { index -> { tile: TileId -> index.layer(tile) } }),
+                repository = repository,
+                elevationDataStore = dataStore,
+                metricsProvider = metricsProvider
+            )] = repository
+        }
+        require(sinks.isNotEmpty()) { "No outputs specified, nothing to do!" }
+        return sinks
+    } catch (e: Throwable) {
+        try { closeSafely(repositories) } catch (closing: Throwable) { e.addSuppressed(closing) }
+        throw e
     }
-    if (options.vector) {
-        val repository = repositoryFactory("vector", "pbf")
-        val baseOptions = ContourOptions(minorLevel = 10, majorLevel = 50, epsilon = options.contourEpsilon)
-        sinks[VectorTileSink(
-            contourOptionsProvider = { tile ->
-                if (tile.id.z < 9) {
-                    baseOptions.copy(minorLevel = 500, majorLevel = 1000)
-                } else if (tile.id.z <= 10) {
-                    baseOptions.copy(minorLevel = 100, majorLevel = 200)
-                } else if (tile.id.z < 12) {
-                    baseOptions.copy(minorLevel = 20, majorLevel = 100)
-                } else
-                    baseOptions
-            },
-            repository = repository,
-            elevationDataStore = dataStore,
-            metricsProvider = metricsProvider
-        )] = repository
-    }
-    require(sinks.isNotEmpty()) { "No outputs specified, nothing to do!" }
-    return sinks
 }
+
+/** Vector layers written into a pbf repository; empty for raster outputs. */
+typealias RepositoryFactory = (name: String, format: String, layers: List<LayerSchema>) -> TileRepository
 
 fun createMbTilesRepository(
     options: CliOptions,
     format: String,
     file: File,
-    metricsProvider: MetricsProvider
+    metricsProvider: MetricsProvider,
+    layers: List<LayerSchema> = listOf()
 ): TileRepository =
     MbtilesTileRepository(file, metricsProvider).also { repository ->
-        val contourOptions = ContourOptions()
         try {
+            val minZoom = layers.minOfOrNull { it.minZoom } ?: options.minZ
+            val maxZoom = layers.maxOfOrNull { it.maxZoom } ?: options.maxZ
+            val rbt = options.profile == ProfileName.rbt
             repository.setMetadata(
                 MbtilesMetadata(
-                    name = "vectorvector $format tiles",
+                    name = if (rbt) "RBT contours" else "vectorvector $format tiles",
                     format = format,
-                    json = if (format == "pbf") vectorSchema(
-                        minZoom = options.minZ,
-                        maxZoom = options.maxZ,
-                        contourLayer = contourOptions.contourLayer,
-                        levelName = contourOptions.levelKey,
-                        elevationName = contourOptions.elevationKey
-                    ) else "",
-                    minZoom = options.minZ,
-                    maxZoom = options.maxZ
+                    json = if (format == "pbf") vectorSchema(minZoom, maxZoom, layers) else "",
+                    minZoom = minZoom,
+                    maxZoom = maxZoom,
+                    bounds = options.resolvedBbox?.toString() ?: "-180.0,-85,180,85",
+                    attribution = attribution(options),
+                    description = if (rbt) "Contour lines (ele, index, is_ice) matching the RBT contours layer" else null
                 )
             )
         } catch (e: Exception) {
@@ -205,19 +248,50 @@ fun createMbTilesRepository(
         }
     }
 
-
-private fun parseCommandLine(args: Array<String>): CliOptions {
-    val options = CliOptions();
-    CommandLine(options).parseArgs(*args)
-    options.area?.bounds?.applyTo(options)
-    return options
+private fun attribution(options: CliOptions): String? {
+    val parts = mutableListOf<String>()
+    if (options.dataFormat == DataSourceFormat.mapterhorn) {
+        parts += "<a href=\"https://mapterhorn.com/attribution\">© Mapterhorn</a>"
+    }
+    if (options.glaciers != null || options.glacierWkb != null || options.resolvedPeaks != null) {
+        parts += "<a href=\"https://www.openstreetmap.org/copyright\">© OpenStreetMap contributors</a>"
+    }
+    return parts.joinToString(" ").ifEmpty { null }
 }
 
-private fun CliOptions.toTileRange() = TileRange(
-    minZ = this.minZ,
-    maxZ = this.maxZ,
-    minX = this.minX,
-    maxX = this.maxX,
-    minY = this.minY,
-    maxY = this.maxY,
-)
+private fun peakIndex(options: CliOptions, dataStore: ElevationDataStore): PeakIndex? {
+    val file = options.resolvedPeaks ?: return null
+    val demZoom = 12
+    val index = PeakIndex(
+        peaks = PeakLoader(file).load(),
+        minZoom = maxOf(options.peaksMinZoom, options.minZ),
+        maxZoom = if (options.profile == ProfileName.rbt) minOf(options.maxZ, 13) else options.maxZ,
+        demElevation = { lon, lat ->
+            val tile = WebMercator.tileAt(lon, lat, demZoom)
+            val elevation = dataStore.get(tile)
+            val px = ((WebMercator.lonToTileX(lon, demZoom) - tile.x) * elevation.extent).toInt().coerceIn(0, elevation.extent - 1)
+            val py = ((WebMercator.latToTileY(lat, demZoom) - tile.y) * elevation.extent).toInt().coerceIn(0, elevation.extent - 1)
+            elevation.get(px, py).takeIf { it.valid }?.meters
+        }
+    )
+    log.info { "Peaks layer: ${index.size} peaks from ${file.name}" }
+    return index
+}
+
+private fun iceSplitterProvider(options: CliOptions): (TileId) -> IceSplitter? {
+    if (options.glaciers == null && options.glacierWkb == null) return { null }
+    val start = System.currentTimeMillis()
+    val glaciers = buildList {
+        options.glaciers?.let { addAll(GlacierLoader(it).load()) }
+        options.glacierWkb?.let { addAll(GlacierWkbLoader(it).load()) }
+    }
+    val index = GlacierIndex(glaciers, cacheSize = options.glacierCacheTiles)
+    val sources = listOfNotNull(options.glaciers, options.glacierWkb).joinToString(" + ") { it.name }
+    log.info { "Loaded ${index.size} glaciers from $sources in ${System.currentTimeMillis() - start} ms" }
+    return { tile -> index.forTile(tile)?.let { GlacierIceSplitter(it) } }
+}
+
+private fun contourProfile(options: CliOptions): ContourProfile = when (options.profile) {
+    ProfileName.default -> DefaultProfile(epsilon = options.contourEpsilon)
+    ProfileName.rbt -> RbtProfile(settings = RbtProfile.DEFAULT_SETTINGS + parseRbtSmoothing(options.rbtSmoothing))
+}

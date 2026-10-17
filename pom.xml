@@ -61,7 +61,7 @@
                 <artifactId>exec-maven-plugin</artifactId>
                 <version>1.6.0</version>
                 <configuration>
-                    <mainClass>MainKt</mainClass>
+                    <mainClass>com.greensopinion.vectorvector.MainKt</mainClass>
                 </configuration>
             </plugin>
             <plugin>
@@ -83,6 +83,7 @@
                             <goal>shade</goal>
                         </goals>
                         <configuration>
+                            <createDependencyReducedPom>false</createDependencyReducedPom>
                             <outputFile>${project.build.directory}/${project.artifactId}-cli.jar
                             </outputFile>
                             <transformers>
@@ -90,6 +91,8 @@
                                         implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                                     <mainClass>com.greensopinion.vectorvector.MainKt</mainClass>
                                 </transformer>
+                                <transformer
+                                        implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
                             </transformers>
                             <filters>
                                 <filter>
@@ -180,7 +183,12 @@
         <dependency>
             <groupId>com.twelvemonkeys.imageio</groupId>
             <artifactId>imageio-tiff</artifactId>
-            <version>3.12.0</version>
+            <version>3.15.3</version>
+        </dependency>
+        <dependency>
+            <groupId>com.twelvemonkeys.imageio</groupId>
+            <artifactId>imageio-webp</artifactId>
+            <version>3.15.3</version>
         </dependency>
         <dependency>
             <groupId>com.google.protobuf</groupId>
@@ -191,6 +199,11 @@
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
             <version>33.4.0-jre</version>
+        </dependency>
+        <dependency>
+            <groupId>org.locationtech.jts</groupId>
+            <artifactId>jts-core</artifactId>
+            <version>1.20.0</version>
         </dependency>
         <dependency>
             <groupId>org.xerial</groupId>

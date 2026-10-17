@@ -1,0 +1,4 @@
+# Optional one-time Antarctic ice-sheet conversion; not required by the Java CLI.
+pyshp==3.1.6
+numpy==2.5.0
+shapely==2.1.2

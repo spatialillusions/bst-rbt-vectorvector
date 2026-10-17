@@ -8,7 +8,15 @@ import kotlin.math.floor
 class MarchingSquares(
     private val tile: ElevationTile,
     extent: Int,
-    private val buffer: Int
+    private val buffer: Int,
+    /** Keeps only the contour levels for which this returns true. */
+    private val levelFilter: (Int) -> Boolean = { true },
+    /**
+     * Rounds interpolated points to integer tile coordinates. When false, points are exact; edge
+     * intersections are then computed in a canonical edge direction so that the two cells sharing an edge
+     * produce bit-identical points and lines join through the hash lookup.
+     */
+    private val roundPoints: Boolean = true
 ) {
     private val factor: Double = extent.toDouble() / tile.extent
 
@@ -123,6 +131,15 @@ class MarchingSquares(
         val contour = mutableListOf<DoublePoint>()
 
         fun interpolate(p1: DoublePoint, p2: DoublePoint, v1: Elevation, v2: Elevation): DoublePoint {
+            if (!roundPoints) {
+                val swap = p1.x > p2.x || (p1.x == p2.x && p1.y > p2.y)
+                val a = if (swap) p2 else p1
+                val b = if (swap) p1 else p2
+                val va = if (swap) v2 else v1
+                val vb = if (swap) v1 else v2
+                val t = (contourLevel - va.meters) / (vb - va).meters
+                return DoublePoint(a.x + t * (b.x - a.x), a.y + t * (b.y - a.y)) * factor
+            }
             return if (v1 == v2) {
                 ((p1 + p2) / 2.0).round()
             } else {
@@ -207,7 +224,7 @@ class MarchingSquares(
         val bounds = tile.elevationBounds
         val lower = (floor(bounds.min.meters).toInt() / interval) * interval
         val upper = (ceil(bounds.max.meters).toInt() / interval) * interval
-        return (lower..upper step interval).filter { !isSeaLevel(it) }.toList()
+        return (lower..upper step interval).filter { !isSeaLevel(it) && levelFilter(it) }.toList()
     }
 
     private fun isSeaLevel(it: Int) = it == 0

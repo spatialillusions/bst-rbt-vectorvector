@@ -1,0 +1,92 @@
+# Preparing the change for check-in
+
+The [migration execution record](migration-report.md) now identifies the isolated Git worktree
+and preserved older branch. The no-Git warning below applies to the original F: source workspace;
+use the migration worktree for actual branch/diff/commit review.
+
+This workspace currently has **no `.git` directory**, so there is no trustworthy tracked baseline
+or branch against which to review changes. Do not initialize a replacement repository merely
+to make a commit. Apply/review these files in the intended checkout before staging.
+
+## Include
+
+- Production Kotlin changes, Maven configuration, CI workflow and the planet launcher.
+- Unit tests, the small `src/test/resources/pmtiles/fixture.pmtiles` fixture and synthetic
+  `src/test/resources/osm/*.osm.pbf` nested-relation fixtures.
+- README, current runbook, readiness/validation/performance reports and source attribution notes.
+- Reusable comparison/benchmark tools, their optional Python requirements and setup instructions.
+- Research harnesses if retaining the supporting evidence for the 10 m recommendation; they are
+  explicitly separated from supported production behavior in [tools/README.md](../tools/README.md).
+
+## Keep local
+
+`target/`, `.tools/`, `.venv/`, `out/`, downloaded datasets, generated comparison styles, Python
+caches, JVM recordings and heap dumps are ignored. Preserve measured outputs locally; there is
+no reason to delete validation evidence just to keep it out of a commit. Do not ignore all
+`*.pmtiles` indiscriminately: the small test fixture must be retained.
+
+The root implementation plan and two planet proposals have been moved to `docs/history/`, with
+their historical status and links corrected. Old help text and disk requirements were removed
+from the README. Legacy GeoTIFF usage, styling and reported benchmarks remain in
+[geotiff-workflow.md](geotiff-workflow.md). Do not delete the legacy profile or tests: compatibility
+with existing GeoTIFF users remains intentional.
+
+## Checks in the intended Git checkout
+
+```sh
+mvn verify
+git diff --check
+git status --short
+git diff --stat
+git diff
+```
+
+Inspect the staged diff too (`git diff --cached`) before committing. In particular, verify that
+the PMTiles fixture is included and large archives/toolchains/output databases are absent.
+Current CI uses JDK 21 and `mvn verify`; data-dependent tests may skip in a clean checkout.
+The legacy `src/it/` GeoTIFF tests are not wired into the current Maven test source set. They
+are retained as manual/reference tests and must not be counted as verification coverage.
+
+Keep contour behavior, planet execution, and documentation/research changes reviewable in the
+commit/PR description. Record current readiness results and remaining quality limits from
+[the planet pilots](planet-pilot-results.md) and [preflight](planet-preflight.md).
+This cleanup does not implement the proposed 10 m option.
+
+## Cleanup verification, 16 October 2026
+
+- `mvn verify`: 133 tests reported, 130 passed, three existing skips, no failures or errors.
+- A source-only copy of all 177 candidate files also passed `mvn verify`, with no downloaded
+  regional datasets or local toolchain copied: 131 tests reported, 127 passed, four skips,
+  no failures or errors. Missing-data assumptions can skip an entire nested test group, so the
+  reported totals differ. The checked-in PMTiles fixture remained available.
+- Pilot launcher: eight selected Iceland tiles with `-NoOsm`, bounding box and tile list; build
+  completed, and an identical second invocation reused all nine completed partition databases
+  (eight were empty because the tile list selected tiles in only one root).
+- Python tools compiled; the Bash tuning helper passed a syntax check; the RBT comparison style
+  regenerated from the supplied H: archive assets.
+- All local Markdown links in the current documentation resolve in this workspace.
+- Isolated temporary Git metadata under ignored `out/` was used only to inspect candidate paths
+  and ignore rules. It does not supply a tracked baseline or initialize this project as a repository.
+  The small test fixture is included, while outputs/datasets/toolchains/generated styles are excluded.
+
+These checks establish local build and packaging readiness, not completion of the global OSM
+memory pilot or the larger-than-cache merge test.
+
+## Readiness additions, 17 October 2026
+
+The [new readiness report](planet-pilot-results.md) supersedes the outstanding pilot status above.
+Global OSM preparation, sustained recovery, byte-exact eight-shard verification, a 40 GiB source
+merge, global storage sampling and wider quality/rendering checks have now run. Production
+verification reports **149 tests: 146 passed, three existing skips, no failures/errors**.
+Six optional Python regressions pass, including the correction for independent RBT layer extents.
+
+Include the supplemental ice loader/converter, requirements and tests; the small synthetic OSM
+fixtures do not require Python during Maven verification. Exclude the generated WKB, source ZIP,
+filtered planet PBF, frozen pilot JARs, benchmark databases and rendered evidence under `out/`.
+The documented production command was checked with `-DryRun`; no full planet build was started.
+
+The final candidate inventory contains no downloaded datasets or benchmark outputs. Legacy
+whitespace in generated protobuf Kotlin and one existing `ElevationTile.kt` line is left intact
+to avoid unrelated source churn; the current documents and new analysis sources pass whitespace
+and local-link checks. There is still no root Git baseline, so this is an inventory/build audit,
+not a substitute for reviewing the eventual diff in the intended checkout.

@@ -1,0 +1,32 @@
+{
+  "options": {
+    "paths": {
+      "root": "",
+      "fonts": "../out/rbt-fonts",
+      "mbtiles": "..",
+      "styles": "."
+    },
+    "serveAllFonts": true,
+    "maxScaleFactor": 2
+  },
+  "data": {
+    "RBT": {
+      "mbtiles": "out/rbt-data/RBT.mbtiles"
+    },
+    "TERRAIN": {
+      "mbtiles": "out/rbt-data/TERRAIN.mbtiles",
+      "encoding": "mapbox",
+      "tileSize": 256
+    },
+    "CONTOURS": {
+      "mbtiles": "out/contours/contours.mbtiles"
+    }
+  },
+  "styles": {
+    "RBT-TOPO-contours": {
+      "style": "RBT-TOPO-contours/style.json",
+      "serve_data": true,
+      "serve_rendered": true
+    }
+  }
+}

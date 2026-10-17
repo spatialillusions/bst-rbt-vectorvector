@@ -16,4 +16,22 @@
 
 .DS_Store
 
-/data
+/data/*
+!/data/iceland/
+/data/iceland/*
+!/data/iceland/SOURCES.md
+
+/.tools
+/out
+__pycache__/
+*.pyc
+/.venv/
+/test-data/
+/test-output/
+/*.log
+/*.jfr
+*.hprof
+/.shards/
+
+# generated comparison style
+/styles/RBT-TOPO-contours/

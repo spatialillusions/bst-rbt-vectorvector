@@ -16,7 +16,6 @@ import java.util.concurrent.Future
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
-import kotlin.reflect.KProperty1
 
 /**
  * Metadata per the [spec](https://github.com/mapbox/mbtiles-spec/blob/master/1.3/spec.md)
@@ -28,8 +27,25 @@ class MbtilesMetadata(
     val maxZoom: Int,
     val type: String = "overlay",
     val json: String,
-    val bounds: String = "-180.0,-85,180,85"
-)
+    val bounds: String = "-180.0,-85,180,85",
+    val attribution: String? = null,
+    val description: String? = null,
+    val version: String? = null
+) {
+    /** Rows of the metadata table, using the key names from the MBTiles 1.3 spec. */
+    fun rows(): Map<String, String> = linkedMapOf(
+        "name" to name,
+        "format" to format,
+        "minzoom" to minZoom.toString(),
+        "maxzoom" to maxZoom.toString(),
+        "type" to type,
+        "json" to json,
+        "bounds" to bounds,
+        "attribution" to attribution,
+        "description" to description,
+        "version" to version
+    ).filterValues { !it.isNullOrBlank() }.mapValues { it.value!! }
+}
 
 class MbtilesTileRepository(
     private val outputFile: File,
@@ -50,37 +66,24 @@ class MbtilesTileRepository(
 
     private val connection: Connection = createConnection()
     private val insert = prepareInsertStatement()
+    private var pendingWrites = 0
 
     fun setMetadata(metadata: MbtilesMetadata) {
-        insertMetadata(metadata, MbtilesMetadata::name)
-        insertMetadata(metadata, MbtilesMetadata::format)
-        insertMetadata(metadata, MbtilesMetadata::minZoom)
-        insertMetadata(metadata, MbtilesMetadata::maxZoom)
-        insertMetadata(metadata, MbtilesMetadata::type)
-        insertMetadata(metadata, MbtilesMetadata::json) { it.trim().isNotEmpty() }
-        insertMetadata(metadata, MbtilesMetadata::bounds)
-    }
-
-    private fun <V> insertMetadata(
-        metadata: MbtilesMetadata,
-        property: KProperty1<MbtilesMetadata, V>,
-        predicate: (V) -> Boolean = { true }
-    ) {
-        val value = property.get(metadata)
-        if (predicate(value)) {
-            val statement =
-                connection.prepareStatement("INSERT INTO metadata (name,value) VALUES (?,?) ON CONFLICT(name) DO UPDATE SET value=excluded.value;")
-            statement.use {
-                it.setString(1, property.name)
-                it.setString(2, value.toString())
+        for ((name, value) in metadata.rows()) {
+            connection.prepareStatement("INSERT INTO metadata (name,value) VALUES (?,?) ON CONFLICT(name) DO UPDATE SET value=excluded.value;").use {
+                it.setString(1, name)
+                it.setString(2, value)
                 if (it.executeUpdate() != 1) {
-                    throw Exception("unexpected result for ${property.name}:${property.get(metadata)}")
+                    throw Exception("unexpected result for $name:$value")
                 }
             }
         }
+        connection.commit()
     }
 
     override fun store(tile: TileId, extension: String, bytes: ByteArray) {
+        check(!executor.isShutdown) { "MBTiles repository is closed" }
+        if (errors.isNotEmpty()) throw IllegalStateException("MBTiles writer failed", errors.first())
         executor.submit { write(tile, bytes) }
     }
 
@@ -120,6 +123,10 @@ class MbtilesTileRepository(
             insert.setInt(3, tile.y.toTms(tile.z))
             insert.setBytes(4, bytes)
             insert.execute()
+            if (++pendingWrites >= 1000) {
+                connection.commit()
+                pendingWrites = 0
+            }
             metricsProvider.get().addCount("Mbtiles.written")
         } catch (e: Exception) {
             log.error(e) { "Cannot write tile $tile: ${e.message}" }
@@ -132,22 +139,29 @@ class MbtilesTileRepository(
 
     override fun close() {
         executor.shutdown()
-        executor.awaitTermination(10, TimeUnit.MINUTES)
-        insert.close()
-        connection.close()
-        if (errors.isNotEmpty()) {
-            throw errors.last()
+        check(executor.awaitTermination(10, TimeUnit.MINUTES)) { "Timed out draining MBTiles writer" }
+        try {
+            if (errors.isEmpty()) connection.commit() else connection.rollback()
+        } finally {
+            try { insert.close() } finally { connection.close() }
         }
+        if (errors.isNotEmpty()) throw errors.first()
     }
 
     private fun createConnection(): Connection {
-        outputFile.parentFile.mkdirs()
+        outputFile.absoluteFile.parentFile.mkdirs()
         val exists = outputFile.exists()
         if (exists && truncate) {
-            outputFile.delete()
+            java.nio.file.Files.delete(outputFile.toPath())
+            for (suffix in listOf("-journal", "-wal", "-shm")) {
+                java.nio.file.Files.deleteIfExists(File(outputFile.path + suffix).toPath())
+            }
         }
         return JDBC.createConnection("jdbc:sqlite:${outputFile.absolutePath}", Properties()).also {
+            it.executeStatement("PRAGMA synchronous=NORMAL")
+            it.executeStatement("PRAGMA cache_size=-16384")
             initialize(it)
+            it.autoCommit = false
         }
     }
 

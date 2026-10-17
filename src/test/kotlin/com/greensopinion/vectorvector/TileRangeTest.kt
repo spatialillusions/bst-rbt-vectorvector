@@ -80,11 +80,21 @@ class TileRangeTest {
     @Test
     fun `provides a size`() {
         val range = TileRange(minZ = 1, maxZ = 2, minX = 0, maxX = 1, minY = 0, maxY = 1)
-        assertThat(range.size).isEqualTo(20)
+        assertThat(range.size).isEqualTo(20L)
     }
     @Test
     fun `provides a size across a wider range`() {
         val range = TileRange(minZ = 10, maxZ = 12, minX = 50, maxX = 55, minY = 80, maxY = 85)
-        assertThat(range.size).isEqualTo(756)
+        assertThat(range.size).isEqualTo(756L)
+    }
+}
+class LonLatBoundsTest {
+    @Test
+    fun `tile bounds round trip`() {
+        val b = TileId(12, 1858, 1092).lonLatBounds()
+        assertThat(WebMercator.tileAt(-16.677, 63.999, 12)).isEqualTo(TileId(12, 1858, 1092))
+        assertThat(b.contains(-16.677, 63.999)).isTrue()
+        assertThat(WebMercator.lonToTileX(b.minLon, 12)).isCloseTo(1858.0, org.assertj.core.api.Assertions.within(1e-9))
+        assertThat(WebMercator.latToTileY(b.maxLat, 12)).isCloseTo(1092.0, org.assertj.core.api.Assertions.within(1e-9))
     }
 }

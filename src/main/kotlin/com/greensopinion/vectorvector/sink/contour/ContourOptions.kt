@@ -29,5 +29,35 @@ data class ContourOptions(
     /** The minimum level, exclusive, to include in contour lines */
     val minLevelExclusive: Int = 0,
     /** The epsilon to apply with the Ramer–Douglas–Peucker algorithm, used to reduce points in contour lines. */
-    val epsilon: Int? = null
+    val epsilon: Int? = null,
+
+    /** Which attributes are written. [AttributeStyle.RBT] also selects the smoothing pipeline. */
+    val attributeStyle: AttributeStyle = AttributeStyle.VECTORVECTOR,
+
+    /** Keeps only levels (multiples of [minorLevel]) for which this returns true. */
+    val levelFilter: ((Int) -> Boolean)? = null,
+
+    /** Smoothing applied by the RBT pipeline. */
+    val smoothing: SmoothingOptions = SmoothingOptions(),
+
+    /** RBT pipeline: fractional RDP epsilon in tile units; overrides [epsilon] when set. */
+    val rdpEpsilon: Double? = null,
+
+    /** RBT pipeline: lines are clipped to the tile box grown by this many tile units. */
+    val clipBuffer: Int = 80
+)
+
+enum class AttributeStyle {
+    /** `ele` + `level` (upstream vectorvector). */
+    VECTORVECTOR,
+
+    /** `ele` + `index` + `is_ice` (Releasable Basemap Tiles). */
+    RBT
+}
+
+data class SmoothingOptions(
+    /** Gaussian blur of the elevation grid before contouring, in elevation pixels. 0 disables it. */
+    val sigmaPx: Double = 0.0,
+    /** Chaikin corner-cutting iterations after contouring. 0 disables it. */
+    val chaikinIterations: Int = 0
 )
