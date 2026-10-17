@@ -118,3 +118,12 @@ EPSG:3857 polygon shapefile without extracting it and preserves holes while conv
 The CLI loader enforces Mercator latitude limits. The converter refuses an existing output and records source
 and output hashes. Pass `--glacierWkb <file>` to the CLI or `-GlacierWkb <file>` to the launcher;
 `run_planet_pilot.py` accepts `--glacier-wkb`. These polygons supplement the global glacier PBF.
+
+## Windows memory pressure
+
+See [the planet memory-pressure investigation](../docs/windows-memory-pressure.md).
+`monitor_job.py --low-memory-priority-on-pressure-mib 4096` can lower its own
+child's memory retention priority after five low-headroom samples while keeping
+the stop guard enabled. This is opt-in and is not a hard cache cap. The read-only
+`watch_memory.py --pid <pid> --out <fresh.jsonl>` records per-application attribution
+alongside existing jobs. Both use only Python's standard library on Windows.

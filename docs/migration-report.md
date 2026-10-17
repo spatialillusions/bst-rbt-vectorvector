@@ -168,3 +168,16 @@ Local verification on 17 October 2026:
 These changes affect development tools/docs/styles only. The running full-planet
 job continues using its frozen runtime and independent verification inputs.
 Linux/GitHub CI execution remains pending publication of the branch.
+
+## Planet memory-pressure follow-up
+
+Attempt one stopped on its 1 GiB physical-memory guard at 17:56 on 17 October,
+with 797 completed shards. It resumed at 20:21 after frozen identity checks.
+The [memory-pressure investigation](windows-memory-pressure.md) records sustained
+resident Windows cache growth and the final JVM expansion. At 22:11, attempt two's
+Java process received a reversible memory-priority change (5 to 2); its CPU
+priority/runtime/inputs are unchanged. This is a measured mitigation trial, not a
+claim of resolved long-run pressure. A separate read-only observer records other
+processes and additional system counters. Development monitoring now offers an
+opt-in early-pressure response, smoke-tested with disposable children. The frozen
+runner and its safety floors remain unchanged.

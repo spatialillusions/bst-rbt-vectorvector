@@ -66,7 +66,14 @@ class DiskCounters:
                            "cpu_perf_pct": r"\Processor Information(_Total)\% Processor Performance",
                            "cpu_mhz": r"\Processor Information(_Total)\Processor Frequency",
                            "system_cache_resident_bytes": r"\Memory\System Cache Resident Bytes",
-                           "system_cache_bytes": r"\Memory\Cache Bytes"}.items():
+                           "system_cache_bytes": r"\Memory\Cache Bytes",
+                           "system_committed_bytes": r"\Memory\Committed Bytes",
+                           "system_commit_limit_bytes": r"\Memory\Commit Limit",
+                           "pool_nonpaged_bytes": r"\Memory\Pool Nonpaged Bytes",
+                           "pool_paged_bytes": r"\Memory\Pool Paged Bytes",
+                           "modified_page_list_bytes": r"\Memory\Modified Page List Bytes",
+                           "standby_normal_bytes": r"\Memory\Standby Cache Normal Priority Bytes",
+                           "pages_input_per_sec": r"\Memory\Pages Input/sec"}.items():
             counter = W.HANDLE()
             if self.dll.PdhAddEnglishCounterW(self.query, path, 0, C.byref(counter)) == 0:
                 self.counters[name] = counter

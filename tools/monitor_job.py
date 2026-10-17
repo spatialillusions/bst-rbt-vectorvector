@@ -32,8 +32,11 @@ def main():
     p.add_argument("--disk-path", type=Path, action="append", default=[], help="Also sample free bytes on these volumes")
     p.add_argument("--low-memory-priority", action="store_true", help="Use very low memory priority for this child only, to limit scan-cache crowding")
     p.add_argument("--low-memory-priority-after", help="Lower this child's memory priority only after this text appears in its log")
+    p.add_argument("--low-memory-priority-on-pressure-mib", type=int, default=0, help="After five samples below this available-RAM level, lower only this child to memory priority 2; keep the stop floor enabled")
     p.add_argument("command", nargs=argparse.REMAINDER)
     a = p.parse_args()
+    if a.low_memory_priority_on_pressure_mib and a.low_memory_priority_on_pressure_mib <= a.min_available_mib:
+        p.error("Memory-priority pressure threshold must exceed the stop floor")
     cmd = a.command[1:] if a.command[:1] == ["--"] else a.command
     a.out.mkdir(parents=True, exist_ok=False)
     (a.out / "command.json").write_text(json.dumps(cmd, indent=2))
@@ -46,22 +49,24 @@ def main():
     low_disk = 0
     disk_stopped = False
     priority_lowered = False
+    low_pressure = 0
+    pressure_priority_lowered = False
     watched = {str(path.resolve().anchor) for path in [Path.cwd(), Path(tempfile.gettempdir()), *a.disk_path]}
     with (a.out / "run.log").open("w", encoding="utf-8") as log:
         process = subprocess.Popen(cmd, stdout=log, stderr=subprocess.STDOUT, cwd=a.cwd)
-        handle = kernel.OpenProcess(0x1000 | 0x10 | (0x200 if a.low_memory_priority or a.low_memory_priority_after else 0), False, process.pid)
+        handle = kernel.OpenProcess(0x1000 | 0x10 | (0x200 if a.low_memory_priority or a.low_memory_priority_after or a.low_memory_priority_on_pressure_mib else 0), False, process.pid)
         if not handle:
             process.terminate()
             raise C.WinError(C.get_last_error())
-        def lower_priority():
+        def lower_priority(level=1):
             nonlocal priority_lowered
             kernel.SetProcessInformation.argtypes = [W.HANDLE, C.c_int, C.c_void_p, W.DWORD]
             kernel.SetProcessInformation.restype = W.BOOL
-            priority = W.DWORD(1)
+            priority = W.DWORD(level)
             if not kernel.SetProcessInformation(handle, 0, C.byref(priority), C.sizeof(priority)):
                 raise C.WinError(C.get_last_error())
             priority_lowered = True
-            log.write("MONITOR: very low memory priority for this child only\n")
+            log.write(f"MONITOR: memory priority {level} for this child only\n")
             log.flush()
         try:
             if a.low_memory_priority:
@@ -92,6 +97,12 @@ def main():
                             lower_priority()
                     except PermissionError:
                         pass
+                low_pressure = low_pressure + 1 if memory.available < a.low_memory_priority_on_pressure_mib * 2**20 else 0
+                if a.low_memory_priority_on_pressure_mib and low_pressure >= 5 and not priority_lowered:
+                    lower_priority(2)
+                    pressure_priority_lowered = True
+                    log.write("MONITOR: early memory-pressure mitigation; stop floor remains enabled\n")
+                    log.flush()
                 low_memory = low_memory + 1 if memory.available < a.min_available_mib * 2**20 else 0
                 if a.min_available_mib and low_memory >= 5 and not memory_stopped:
                     memory_stopped = True
@@ -128,6 +139,8 @@ def main():
     result["minimum_disk_free_gib"] = {path: min(s["disk_free_bytes"][path] for s in samples) / 2**30 for path in watched}
     result["disk_floor_stop"] = disk_stopped
     result["low_memory_priority"] = priority_lowered
+    result["memory_pressure_priority_lowered"] = pressure_priority_lowered
+    result["memory_pressure_threshold_mib"] = a.low_memory_priority_on_pressure_mib
     result["memory_priority_after_marker"] = a.low_memory_priority_after
     result["peak_system_cache_resident_mib"] = max(s.get("system_cache_resident_bytes", 0) for s in samples) / 2**20
     (a.out / "samples.json").write_text(json.dumps(samples))
