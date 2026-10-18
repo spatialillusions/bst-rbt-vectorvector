@@ -1,5 +1,14 @@
 # Development and validation tools
 
+The [memory-footprint investigation](../docs/memory-footprint-investigation.md)
+ranks five changes and separates measured savings from hypotheses.
+`MemoryFootprintProbe.java`, `PrimitiveSmoothingProbe.java` and
+`FusedResampleProbe.java` are research harnesses against a built JAR. Synthetic
+modes require no downloaded inputs; spatial/elevation modes accept your datasets,
+without RBT references. Prepared binary partitions are experimental and are not
+production CLI inputs. Compile/run instructions and evidence are in the report.
+None of these prototypes is enabled by the production pipeline.
+
 The Java CLI needs JDK 21; Python is optional. Run tools from the project root. Do not treat
 research scripts as supported production CLI options.
 

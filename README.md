@@ -10,6 +10,8 @@ It has been compared against RBT in Iceland and several other regions; it is not
 of RBT's geometry. See the [quality comparison](docs/rbt-global-validation.md) for known differences.
 The [planet readiness pilots](docs/planet-pilot-results.md) record global OSM preparation,
 memory/recovery measurements, larger-than-RAM merging and additional quality checks.
+The [memory investigation](docs/memory-footprint-investigation.md) gives five code-based
+recommendations and focused measurements for further memory and throughput improvements.
 
 ## Build
 
