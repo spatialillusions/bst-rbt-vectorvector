@@ -107,3 +107,82 @@ alone is not a whole-machine memory budget.
   memory counters; the ongoing observer writes attributable process groups.
 - These checks prove the controls and telemetry work. They do not prove the
   operational mitigation eliminates long-run memory pressure or preserves speed.
+
+## Bounded sessions deployed on 18 October 2026
+
+The user requested a stop, a stronger fix, and a restart. Attempt two was stopped
+at 09:52 Europe/Stockholm with 1,646 completed shards preserved. The low-retention
+priority trial had reduced the cache growth compared with attempt one, but the
+observer still saw only 1.6 GiB available at its overnight minimum. It was not a
+hard memory bound. Closing the JVM restored approximately 17.4 GiB available.
+
+A new supervisor now limits the lifetime of generation workers rather than
+letting their archive handles and caches accumulate for the full planet:
+
+- After 45 minutes, request recycling and wait for a newly completed shard.
+- After five samples below 3 GiB available, request recycling earlier.
+- Wait at most two minutes for that checkpoint. On timeout, the unfinished
+  shard is discarded/rebuilt by the existing resume logic; published shards stay.
+- Stop only the owned JVM, then wait for at least 8 GiB available continuously
+  for ten seconds before starting a fresh worker. Recovery waits stop safely
+  after 20 minutes if other machine activity prevents adequate headroom.
+- The 1 GiB memory stop and 20 GiB disk stop remain. A memory-floor stop may
+  recover automatically, but three consecutive floor stops or two sessions
+  without new completed shards stop the supervisor for investigation. Unexpected
+  failures and disk-floor stops do not auto-retry.
+- At 6 GiB available, the monitor can lower retention priority to 2 before
+  recycling is necessary. On merging, the existing log marker switches priority
+  to 1 even if the earlier pressure response already applied priority 2.
+- Once all shards exist at session start, scheduled recycling is disabled for
+  merging. Full merge verification and the original independent QA sample remain
+  mandatory before reporting completion.
+
+A race may start the next shard between marker publication and the monitor's
+next sample. That shard has no completion marker and is regenerated. This is
+checkpoint-aware interruption using the existing recovery contract, not a claim
+that the JVM receives a graceful per-shard stop command.
+
+The producer JAR, exact Java argv, data identities, shard fingerprint and output
+parameters are unchanged. The new operational scripts are isolated under
+`F:/vectorvector-planet-20261017/runtime-supervised-v1/`, with SHA-256 identities
+in `operations.json`. Original `runtime/` and `manifest.json` remain intact.
+Original GC logs and all preserved completion stamps were copied into the new
+operational directory before restart. Supervisor locking shares the original
+`runner.lock` so old and new runners cannot run concurrently.
+
+The current deployment's restart command is now:
+
+```powershell
+python F:/vectorvector-planet-20261017/runtime-supervised-v1/planet_runner.py F:/vectorvector-planet-20261017
+```
+
+Use this supervisor for subsequent resumes; the old `runtime/run.py` does not
+provide bounded sessions. `--check-only` validates frozen input/runtime and
+supervisor identities without starting generation. `--verify-only` is reserved
+for completed generation with an interrupted verification stage.
+
+Source is in `tools/planet_runner.py`, `tools/monitor_job.py`, and
+`tools/recycle_policy.py`. The supervisor is an operational tool for an already
+prepared frozen deployment: it expects the saved `java_command`, `immutable_files`,
+`quality_reference` and `quality_tiles` in `manifest.json`, plus the original
+`runtime/verify_shard_merge.py`. It does not construct those inputs or download
+reference data. `quality_reference` is our independent pilot output, not RBT.
+
+Validation before deploying:
+
+- Five pure policy regressions cover disabled behavior, consecutive-sample
+  hysteresis, time requests, checkpoint waiting and timeout fallback.
+- With only committed elevation fixtures, a real JAR run was interrupted at a
+  checkpoint and resumed. Both preserved stamps were unchanged; all 284 raw
+  tile keys/payloads matched an uninterrupted build; SQLite integrity passed.
+- A complete miniature frozen deployment used the actual supervisor to recycle,
+  resume, merge, check every merged payload against four shards, then compare all
+  284 tiles with the independent baseline. It reached
+  `planet-complete-and-verified` after two worker sessions.
+- Evidence is in `out/recycle-recovery-20261018/` and
+  `out/recycle-supervisor-20261018/` in the migration worktree.
+
+This bounds accumulation between worker restarts; it does not impose a global
+Windows cache cap. Startup reloads the OSM indexes and may redo a small amount of
+unfinished work at each restart. Planet-scale throughput impact and behavior
+through multiple real recycling sessions still need observation.

@@ -23,3 +23,4 @@ jobs:
       - run: python -m unittest discover -s tools -p test_verify_contours.py -v
       - run: python tools/generate_example.py
       - run: python tools/verify_contours.py out/example-contours/contours.mbtiles
+      - run: python -m unittest discover -s tools -p test_recycle_policy.py -v

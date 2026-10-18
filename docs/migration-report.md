@@ -181,3 +181,26 @@ claim of resolved long-run pressure. A separate read-only observer records other
 processes and additional system counters. Development monitoring now offers an
 opt-in early-pressure response, smoke-tested with disposable children. The frozen
 runner and its safety floors remain unchanged.
+
+## Bounded-worker recovery on 18 October
+
+At the user's request, attempt two was stopped at 09:52 Europe/Stockholm with
+1,646 completed shards. A checkpoint-aware recycling supervisor was implemented
+and validated before deployment. It keeps the producer JAR/argv/input/shard
+identities unchanged, limits generation sessions to 45 minutes, recycles early
+below 3 GiB available and waits for stable 8 GiB headroom before resuming. Existing
+memory/disk stop floors and full verification remain. Unexpected failures stop
+rather than triggering blind retries. Two no-progress sessions or three consecutive
+memory-floor stops also stop for investigation.
+
+A real interrupted/resumed fixture build matched all 284 baseline payloads and
+preserved both completed stamps. An end-to-end miniature deployment then recycled
+and resumed automatically, merged four shards, verified every raw payload, matched
+all 284 independent sample tiles and reported complete. Five pure policy tests passed.
+
+The current deployment now uses the isolated SHA-checked
+`F:/vectorvector-planet-20261017/runtime-supervised-v1/planet_runner.py` with the
+planet directory as its argument. It shares the existing runner lock. This
+supersedes the earlier operational resume command; original runtime and manifests
+remain preserved. See [full details](windows-memory-pressure.md) for recovery limits
+and the remaining need to observe real-session memory and throughput behavior.

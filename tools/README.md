@@ -127,3 +127,15 @@ child's memory retention priority after five low-headroom samples while keeping
 the stop guard enabled. This is opt-in and is not a hard cache cap. The read-only
 `watch_memory.py --pid <pid> --out <fresh.jsonl>` records per-application attribution
 alongside existing jobs. Both use only Python's standard library on Windows.
+
+For bounded generation sessions, `monitor_job.py --shard-dir <directory>` accepts
+`--recycle-after-seconds 2700 --recycle-below-available-mib 3072`. It exits **75**
+only for an intentional worker recycle and records `worker_recycled` in its result.
+The caller must resume the exact frozen command; it is not a successful complete
+build. A checkpoint request waits for a new completion marker, up to
+`--recycle-checkpoint-wait-seconds` (120 by default). The unfinished shard may be
+rebuilt. `planet_runner.py <deployment-root>` supervises existing frozen deployments,
+with automatic restarts, headroom waits, progress/failure limits and final verification;
+see the investigation for its manifest requirements and the current resume command.
+Run pure policy tests with
+`python -m unittest discover -s tools -p test_recycle_policy.py -v`.

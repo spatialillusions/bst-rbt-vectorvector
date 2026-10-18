@@ -14,6 +14,7 @@ import tempfile
 import time
 
 from benchmark_contours import kernel, snapshot, DiskCounters
+from recycle_policy import RecyclePolicy
 
 
 class SystemMemory(C.Structure):
@@ -33,10 +34,22 @@ def main():
     p.add_argument("--low-memory-priority", action="store_true", help="Use very low memory priority for this child only, to limit scan-cache crowding")
     p.add_argument("--low-memory-priority-after", help="Lower this child's memory priority only after this text appears in its log")
     p.add_argument("--low-memory-priority-on-pressure-mib", type=int, default=0, help="After five samples below this available-RAM level, lower only this child to memory priority 2; keep the stop floor enabled")
+    p.add_argument("--recycle-after-seconds", type=float, default=0, help="Request worker restart after this session length; exit 75 after stopping at a checkpoint")
+    p.add_argument("--recycle-below-available-mib", type=int, default=0, help="Request restart after five low-headroom samples")
+    p.add_argument("--recycle-checkpoint-wait-seconds", type=float, default=120, help="Maximum wait for the next completed shard before restarting the unfinished shard")
     p.add_argument("command", nargs=argparse.REMAINDER)
     a = p.parse_args()
     if a.low_memory_priority_on_pressure_mib and a.low_memory_priority_on_pressure_mib <= a.min_available_mib:
         p.error("Memory-priority pressure threshold must exceed the stop floor")
+    recycling = bool(a.recycle_after_seconds or a.recycle_below_available_mib)
+    if recycling and (not a.shard_dir or not a.shard_dir.is_dir()):
+        p.error("Recycling requires an existing --shard-dir")
+    if a.recycle_below_available_mib and a.recycle_below_available_mib <= a.min_available_mib:
+        p.error("Recycle memory threshold must exceed the stop floor")
+    try:
+        recycle_policy = RecyclePolicy(a.recycle_after_seconds, a.recycle_below_available_mib, a.recycle_checkpoint_wait_seconds)
+    except ValueError as error:
+        p.error(str(error))
     cmd = a.command[1:] if a.command[:1] == ["--"] else a.command
     a.out.mkdir(parents=True, exist_ok=False)
     (a.out / "command.json").write_text(json.dumps(cmd, indent=2))
@@ -49,8 +62,10 @@ def main():
     low_disk = 0
     disk_stopped = False
     priority_lowered = False
+    marker_priority_lowered = False
     low_pressure = 0
     pressure_priority_lowered = False
+    recycled = False
     watched = {str(path.resolve().anchor) for path in [Path.cwd(), Path(tempfile.gettempdir()), *a.disk_path]}
     with (a.out / "run.log").open("w", encoding="utf-8") as log:
         process = subprocess.Popen(cmd, stdout=log, stderr=subprocess.STDOUT, cwd=a.cwd)
@@ -91,10 +106,11 @@ def main():
                     pass
                 if process.poll() is not None:
                     break
-                if a.low_memory_priority_after and not priority_lowered:
+                if a.low_memory_priority_after and not marker_priority_lowered:
                     try:
                         if a.low_memory_priority_after.encode() in (a.out / "run.log").read_bytes():
                             lower_priority()
+                            marker_priority_lowered = True
                     except PermissionError:
                         pass
                 low_pressure = low_pressure + 1 if memory.available < a.low_memory_priority_on_pressure_mib * 2**20 else 0
@@ -115,6 +131,15 @@ def main():
                     log.write("MONITOR: stopping this job after five low-disk-space samples\n")
                     log.flush()
                     process.terminate()
+                if recycling and not recycled and not memory_stopped and not disk_stopped:
+                    done_count = len(list(a.shard_dir.glob("*.done")))
+                    if recycle_policy.observe(s["elapsed"], memory.available, done_count):
+                        # Only the owned child is stopped. Published markers are reusable;
+                        # a raced or timed-out unfinished shard is rebuilt on resume.
+                        recycled = True
+                        log.write(f"MONITOR: recycling worker ({recycle_policy.reason}); completed shards retained\n")
+                        log.flush()
+                        process.terminate()
                 if a.abort_after_done and a.shard_dir and not aborted:
                     if len(list(a.shard_dir.glob("*.done"))) >= a.abort_after_done:
                         aborted = True
@@ -139,6 +164,9 @@ def main():
     result["minimum_disk_free_gib"] = {path: min(s["disk_free_bytes"][path] for s in samples) / 2**30 for path in watched}
     result["disk_floor_stop"] = disk_stopped
     result["low_memory_priority"] = priority_lowered
+    result["worker_recycled"] = recycled and code != 0 and not memory_stopped and not disk_stopped
+    result["recycle_reason"] = recycle_policy.reason
+    result["recycle_requested_at_seconds"] = recycle_policy.requested_at
     result["memory_pressure_priority_lowered"] = pressure_priority_lowered
     result["memory_pressure_threshold_mib"] = a.low_memory_priority_on_pressure_mib
     result["memory_priority_after_marker"] = a.low_memory_priority_after
@@ -146,6 +174,8 @@ def main():
     (a.out / "samples.json").write_text(json.dumps(samples))
     (a.out / "result.json").write_text(json.dumps(result, indent=2))
     print(json.dumps(result), flush=True)
+    if result["worker_recycled"]:
+        raise SystemExit(75)
     if code and not aborted:
         raise SystemExit(code)
 
