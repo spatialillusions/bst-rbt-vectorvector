@@ -115,6 +115,15 @@ system-cache resident counter was 744 MiB. These bounded results do not prove a
 long-running Windows cache plateau. Process RSS, cache counter and available RAM
 are distinct measurements; the supervisor protections remain enabled.
 
+The four-shard archive-lifetime test selected 8,192 high-zoom positions in
+`x44–45/y24–25`. Both modes matched every one of **7,731 stored tiles** against
+the previous planet archives. Keeping handles open took 85.41 s; reopening took
+91.39 s. Peak system-cache resident counters were 482.4 versus 483.2 MiB and peak
+RSS 3,284.3 versus 3,263.7 MiB. A single ordered pair cannot establish a small
+causal speed difference, but demonstrates no cache benefit here. **Reopening is
+implemented/tested and remains opt-in; the new planet deployment leaves it off.**
+Bounded JVM recycling remains the operational handle-lifetime safeguard.
+
 ## Preservation and adoption
 
 The previous supervisor was stopped first, then its verified worker, at 10:31
