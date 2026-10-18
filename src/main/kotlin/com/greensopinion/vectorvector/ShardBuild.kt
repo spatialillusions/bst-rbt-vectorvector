@@ -35,7 +35,7 @@ internal fun buildShards(range: TileRange, shardsX: Int, shardsY: Int): List<Til
     val partitions = slices(range.minY, range.maxY, shardsY).flatMapIndexed { y, ys ->
         slices(range.minX, range.maxX, shardsX).mapIndexed { x, xs ->
             TileShard("x$x-y$y", TileRange(range.minZ, range.maxZ, xs.first, xs.last,
-                ys.first, ys.last, range.bounds, range.only))
+                ys.first, ys.last, range.bounds, range.only, range.blockSize))
         }
     }
     // Sparse pilots should not create thousands of databases for unselected roots.
@@ -50,7 +50,7 @@ internal fun buildIdentity(options: CliOptions, args: Array<String>): String {
     add("vectorvector-shards-v1")
     args.forEach(::add)
     val inputs = options.pmtiles.filterNot { it.startsWith("http://") || it.startsWith("https://") }.map(::File) +
-        listOfNotNull(options.dataDir, options.glaciers, options.glacierWkb, options.resolvedPeaks, options.tileList)
+        listOfNotNull(options.dataDir, options.glaciers, options.glacierWkb, options.resolvedPeaks, options.tileList, options.spatialData)
     inputs.distinctBy { it.canonicalPath }.sortedBy { it.canonicalPath }.forEach { file ->
         require(file.exists()) { "Missing input: $file" }
         if (file.isDirectory) {
@@ -82,6 +82,15 @@ internal fun runTileBuild(
     identity: () -> String,
     defaultFactory: RepositoryFactory,
     createSinks: (RepositoryFactory) -> Map<TileSink, TileRepository>
+) = runTileBuild(options, metrics, identity, defaultFactory, {}, createSinks)
+
+internal fun runTileBuild(
+    options: CliOptions,
+    metrics: SingletonMetricsProvider,
+    identity: () -> String,
+    defaultFactory: RepositoryFactory,
+    afterShard: () -> Unit,
+    createSinks: (RepositoryFactory) -> Map<TileSink, TileRepository>
 ) {
     val shards = buildShards(options.toTileRange(), options.shardsX, options.shardsY)
     fun process(shard: TileShard, sinks: Map<TileSink, TileRepository>) {
@@ -90,7 +99,7 @@ internal fun runTileBuild(
     }
     if (!options.resumableShards) {
         val sinks = createSinks(defaultFactory)
-        try { shards.forEach { process(it, sinks) } } finally { closeSafely(sinks.values) }
+        try { shards.forEach { process(it, sinks); afterShard() } } finally { closeSafely(sinks.values) }
         return
     }
     val work = (options.shardWorkDir ?: File(options.outputDir, ".shards")).canonicalFile
@@ -132,6 +141,7 @@ internal fun runTileBuild(
                 try { process(shard, sinks) } finally { closeSafely(sinks.values) }
                 // A marker is published only after every asynchronous writer closes successfully.
                 atomicText(marker, stamp())
+                afterShard()
             }
             for (name in names) {
                 mergeShardMbtiles(File(options.outputDir, "$name.mbtiles"),

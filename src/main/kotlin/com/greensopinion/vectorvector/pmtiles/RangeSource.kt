@@ -5,6 +5,9 @@ import java.io.File
 import java.nio.ByteBuffer
 import java.nio.channels.FileChannel
 import java.nio.file.StandardOpenOption
+import java.util.concurrent.locks.ReentrantReadWriteLock
+import kotlin.concurrent.read
+import kotlin.concurrent.write
 
 /** Random access to the bytes of an archive. Implementations must be thread-safe. */
 interface RangeSource : Closeable {
@@ -12,6 +15,7 @@ interface RangeSource : Closeable {
 
     /** Reads up to [length] bytes at [offset]; fewer bytes are returned only at the end of the archive. */
     fun read(offset: Long, length: Int): ByteArray
+    fun reopen() {}
 }
 
 fun rangeSourceFor(pathOrUrl: String, cacheDir: File? = null): RangeSource {
@@ -23,11 +27,16 @@ fun rangeSourceFor(pathOrUrl: String, cacheDir: File? = null): RangeSource {
     return if (cacheDir != null) CachingRangeSource(http, cacheDir) else http
 }
 
-class FileRangeSource(file: File) : RangeSource {
+class FileRangeSource(private val file: File) : RangeSource {
     override val name: String = file.path
-    private val channel = FileChannel.open(file.toPath(), StandardOpenOption.READ)
+    private var channel = FileChannel.open(file.toPath(), StandardOpenOption.READ)
+    private val lock = ReentrantReadWriteLock()
+    private val initialSize = file.length()
+    private val initialModified = file.lastModified()
+    private var closed = false
 
-    override fun read(offset: Long, length: Int): ByteArray {
+    override fun read(offset: Long, length: Int): ByteArray = lock.read {
+        check(!closed) { "Archive is closed: $file" }
         val buffer = ByteBuffer.allocate(length)
         var position = offset
         while (buffer.hasRemaining()) {
@@ -37,10 +46,18 @@ class FileRangeSource(file: File) : RangeSource {
             }
             position += read
         }
-        return if (buffer.position() == length) buffer.array() else buffer.array().copyOf(buffer.position())
+        if (buffer.position() == length) buffer.array() else buffer.array().copyOf(buffer.position())
     }
 
-    override fun close() {
+    override fun reopen() = lock.write {
+        check(!closed) { "Archive is closed: $file" }
+        check(file.length() == initialSize && file.lastModified() == initialModified) { "Archive changed: $file" }
         channel.close()
+        try { channel = FileChannel.open(file.toPath(), StandardOpenOption.READ) }
+        catch (error: Throwable) { closed = true; throw error }
+    }
+
+    override fun close() = lock.write {
+        if (!closed) { closed = true; channel.close() }
     }
 }

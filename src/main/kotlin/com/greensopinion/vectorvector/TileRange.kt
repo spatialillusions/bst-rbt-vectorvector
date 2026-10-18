@@ -11,10 +11,13 @@ class TileRange(
     val bounds: LonLatBounds? = null,
     /** Optional explicit tile set: only these tiles are produced. */
     val only: Set<TileId>? = null,
+    /** Spatial block side at each zoom; zero preserves legacy strip traversal. */
+    val blockSize: Int = 0,
 ) {
     init {
         require(maxZ >= minZ) { "maxZ=$maxZ must be greater or equal to minZ=$minZ" }
         require(minX <= maxX && minY <= maxY) { "Tile bounds must be ordered" }
+        require(blockSize in 0..256) { "Tile block size must be in 0..256" }
         val c = TileCoordinates(minZ)
         c.checkZ(minZ)
         c.checkZ(maxZ)
@@ -65,7 +68,8 @@ class TileRange(
         only?.let { selected ->
             return selected.asSequence().filter { contains(it) }.sortedWith(
                 compareBy<TileId>({ it.y shr (it.z - minZ) }, { it.x shr (it.z - minZ) },
-                    { it.z }, { it.x }, { it.y })
+                    { it.z }, { if (blockSize > 0) it.x / blockSize else it.x },
+                    { if (blockSize > 0) it.y / blockSize else it.y }, { it.x }, { it.y })
             )
         }
         val ranges = (minZ..maxZ).associateWith { ranges(it) }
@@ -75,9 +79,15 @@ class TileRange(
                     for (z in minZ..maxZ) {
                         val factor = 1 shl (z - minZ)
                         val (xs, ys) = ranges.getValue(z)
-                        for (innerX in maxOf(x * factor, xs.first)..minOf((x + 1) * factor - 1, xs.last)) {
-                            for (innerY in maxOf(y * factor, ys.first)..minOf((y + 1) * factor - 1, ys.last)) {
-                                yield(TileId(z, innerX, innerY))
+                        val left = maxOf(x * factor, xs.first)
+                        val right = minOf((x + 1) * factor - 1, xs.last)
+                        val top = maxOf(y * factor, ys.first)
+                        val bottom = minOf((y + 1) * factor - 1, ys.last)
+                        if (left > right || top > bottom) continue
+                        val side = if (blockSize > 0) blockSize else factor
+                        for (bx in left..right step side) for (by in top..bottom step side) {
+                            for (innerX in bx..minOf(bx + side - 1, right)) {
+                                for (innerY in by..minOf(by + side - 1, bottom)) yield(TileId(z, innerX, innerY))
                             }
                         }
                     }

@@ -4,6 +4,7 @@ param(
     [string[]]$AdditionalPmtiles = @(),
     [string]$OsmPbf = 'D:\OpenStreetMap\planet-260921.osm.pbf',
     [string]$GlacierWkb,
+    [string]$SpatialData,
     [string]$OutputDir = (Join-Path $PSScriptRoot 'out\planet'),
     [ValidateRange(1, 1024)][int]$Parallelism = 8,
     [ValidateRange(1, 64)][int]$ShardsX = 64,
@@ -14,6 +15,10 @@ param(
     [string]$JavaHeap = '16g',
     [ValidateRange(1, 32768)][int]$ElevationCacheTiles = 512,
     [ValidateRange(1, 32768)][int]$GlacierCacheTiles = 1024,
+    [ValidateRange(0, 65536)][int]$ElevationCacheMiB = 384,
+    [ValidateRange(0, 65536)][int]$GlacierCacheMiB = 128,
+    [ValidateRange(0, 256)][int]$TileBlockSize = 8,
+    [switch]$ReopenArchivesAfterShard,
     [ValidateSet('g1', 'parallel')][string]$GarbageCollector = 'g1',
     [ValidateSet('auto', '4m', '8m', '16m')][string]$G1HeapRegionSize = 'auto',
     [switch]$NoOsm,
@@ -27,7 +32,7 @@ $ErrorActionPreference = 'Stop'
 if ($GarbageCollector -ne 'g1' -and $G1HeapRegionSize -ne 'auto') {
     throw '-G1HeapRegionSize requires -GarbageCollector g1'
 }
-if ($NoOsm -and $GlacierWkb) { throw '-NoOsm cannot be combined with -GlacierWkb' }
+if ($NoOsm -and ($GlacierWkb -or $SpatialData)) { throw '-NoOsm cannot be combined with glacier/spatial inputs' }
 
 $jar = Join-Path $PSScriptRoot 'target\vectorvector-cli.jar'
 $cliArgs = @(
@@ -37,6 +42,7 @@ $cliArgs = @(
     '-minX', '0', '-maxX', '63', '-minY', '0', '-maxY', '63',
     '--parallelism', "$Parallelism", '--shardsX', "$ShardsX", '--shardsY', "$ShardsY",
     '--resumableShards=true', '--elevationCacheTiles', "$ElevationCacheTiles", '--glacierCacheTiles', "$GlacierCacheTiles",
+    '--elevationCacheMiB', "$ElevationCacheMiB", '--glacierCacheMiB', "$GlacierCacheMiB", '--tileBlockSize', "$TileBlockSize",
     '-f', 'mbtiles', '-o', $OutputDir
 )
 foreach ($archive in $AdditionalPmtiles) { $cliArgs += @('--pmtiles', $archive) }
@@ -44,6 +50,8 @@ if ($Bbox) { $cliArgs += @('--bbox', $Bbox) }
 if ($TileList) { $cliArgs += @('--tileList', $TileList) }
 if (-not $NoOsm) { $cliArgs += @('--glaciers', $OsmPbf, '--peaks') }
 if ($GlacierWkb) { $cliArgs += @('--glacierWkb', $GlacierWkb) }
+if ($SpatialData) { $cliArgs += @('--spatialData', $SpatialData) }
+if ($ReopenArchivesAfterShard) { $cliArgs += '--reopenArchivesAfterShard' }
 $javaArgs = @('-Xms1g', "-Xmx$JavaHeap", '-XX:+ExitOnOutOfMemoryError', '-jar', $jar) + $cliArgs
 [string[]]$gcArgs = if ($GarbageCollector -eq 'g1') { '-XX:+UseG1GC' } else { '-XX:+UseParallelGC' }
 if ($G1HeapRegionSize -ne 'auto') { $gcArgs += "-XX:G1HeapRegionSize=$G1HeapRegionSize" }
@@ -57,6 +65,7 @@ foreach ($inputPath in (@($ElevationArchive) + $AdditionalPmtiles)) {
 if ($TileList -and -not (Test-Path -LiteralPath $TileList -PathType Leaf)) { throw "Missing tile list: $TileList" }
 if (-not $NoOsm -and -not (Test-Path -LiteralPath $OsmPbf -PathType Leaf)) { throw "Missing OSM PBF: $OsmPbf" }
 if ($GlacierWkb -and -not (Test-Path -LiteralPath $GlacierWkb -PathType Leaf)) { throw "Missing glacier WKB: $GlacierWkb" }
+if ($SpatialData -and -not (Test-Path -LiteralPath (Join-Path $SpatialData 'manifest.properties') -PathType Leaf)) { throw "Missing prepared spatial manifest: $SpatialData" }
 
 Push-Location $PSScriptRoot
 try {

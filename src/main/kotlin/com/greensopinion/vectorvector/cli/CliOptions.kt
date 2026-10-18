@@ -30,6 +30,22 @@ class CliOptions {
     @Option(names = ["--elevationCacheTiles"], description = ["Maximum entries in each Mapterhorn elevation cache. Defaults to 128."])
     var elevationCacheTiles: Long = 128
 
+    @Option(names = ["--elevationCacheMiB"], description = ["Combined conservative Mapterhorn cache budget in MiB; 0 keeps count-only limits. Defaults to 384."])
+    var elevationCacheMiB: Long = 384
+
+    @Option(names = ["--glacierCacheMiB"], description = ["Conservative clipped-glacier cache budget in MiB; 0 keeps count-only limits. Defaults to 128."])
+    var glacierCacheMiB: Long = 128
+
+    @Option(names = ["--tileBlockSize"], description = ["Spatial tile block side, 0..256. Defaults to 8 for Mapterhorn, 0 for GeoTIFF; 0 keeps legacy strips."])
+    var tileBlockSize: Int? = null
+    val resolvedTileBlockSize get() = tileBlockSize ?: if (dataFormat == DataSourceFormat.mapterhorn) 8 else 0
+
+    @Option(names = ["--reopenArchivesAfterShard"], arity = "0..1", fallbackValue = "true", description = ["Reopen local archive handles at quiescent shard boundaries; retain decoded caches."])
+    var reopenArchivesAfterShard: Boolean = false
+
+    @Option(names = ["--spatialData"], description = ["Completed prepared z6 glacier/peak store; avoids global runtime OSM indexes."])
+    var spatialData: File? = null
+
     @Option(names = ["--glacierCacheTiles"], description = ["Maximum cached clipped glacier geometries. Defaults to 256."])
     var glacierCacheTiles: Long = 256
 
@@ -272,6 +288,10 @@ class CliOptions {
             require(!terrarium) { "--terrarium requires --elevationExtent 256" }
             require(!resolvedHillshadeRaster) { "--hillshadeRaster requires --elevationExtent 256" }
         }
+        require(elevationCacheMiB in 0..65536 && glacierCacheMiB in 0..65536) { "Cache MiB budgets must be in 0..65536" }
+        require(resolvedTileBlockSize in 0..256) { "--tileBlockSize must be in 0..256" }
+        require(spatialData == null || (profile == ProfileName.rbt && minZ >= 6)) { "--spatialData requires the rbt profile and minZ >= 6" }
+        require(spatialData == null || File(spatialData, "manifest.properties").isFile) { "Missing prepared spatial manifest: $spatialData" }
         require(peaks == null || resolvedPeaks != null) { "--peaks without a file requires --glaciers" }
         require(glaciers == null || profile == ProfileName.rbt) { "--glaciers requires --profile rbt" }
         require(glacierWkb == null || profile == ProfileName.rbt) { "--glacierWkb requires --profile rbt" }
@@ -365,9 +385,8 @@ fun CliOptions.toTileRange(): TileRange {
     val only = resolvedTileList
     if (bounds != null && area == null) {
         val covering = TileRange.covering(bounds, minZ, maxZ)
-        return if (only == null) covering else TileRange(
-            covering.minZ, covering.maxZ, covering.minX, covering.maxX, covering.minY, covering.maxY, bounds, only
-        )
+        return TileRange(covering.minZ, covering.maxZ, covering.minX, covering.maxX,
+            covering.minY, covering.maxY, bounds, only, resolvedTileBlockSize)
     }
     return TileRange(
         minZ = minZ,
@@ -377,7 +396,8 @@ fun CliOptions.toTileRange(): TileRange {
         minY = minY,
         maxY = maxY,
         bounds = bounds,
-        only = only
+        only = only,
+        blockSize = resolvedTileBlockSize
     )
 }
 

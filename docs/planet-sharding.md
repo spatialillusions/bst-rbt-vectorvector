@@ -29,8 +29,9 @@ Defaults:
 | Partition roots | z6, 64 × 64 partitions: one z6 cell per shard |
 | Workers | 8 tile workers, bounded queue of 16 tile IDs |
 | JVM maximum heap | 16 GiB |
-| Elevation caches | 512 entries each, including the shared payload cache |
-| Glacier clipping cache | 1,024 entries |
+| Elevation caches | 384 MiB combined estimated budget; 512 entries per cache |
+| Glacier clipping cache | 128 MiB estimated budget; 1,024 entries |
+| Mapterhorn traversal | 8-by-8 spatial blocks at each zoom |
 
 The processing range begins at z6 so shards can be small; the RBT profile emits contours only
 at z9–13. Each default shard visits 21,845 tile IDs through z13. This is a recovery unit,
@@ -61,6 +62,11 @@ without first unioning a continent. This file also forms part of the resume fing
 The launcher also exposes `-ElevationCacheTiles`, `-GlacierCacheTiles`, `-GarbageCollector g1|parallel`,
 and `-G1HeapRegionSize auto|4m|8m|16m`. See [performance.md](performance.md) for the tuning study;
 these controls allow its measured settings to be reproduced without editing the launcher.
+The launcher now also exposes `-ElevationCacheMiB`, `-GlacierCacheMiB`, `-TileBlockSize`,
+`-SpatialData` and `-ReopenArchivesAfterShard`. See the [README preparation example](../README.md#resumable-planet-builds)
+to replace global runtime OSM indexes with checksummed z6 glacier-mask/peak partitions.
+The [memory implementation plan](memory-implementation-plan.md) covers acceptance and adoption gates.
+The earlier global-index pilot figures below describe runs without `-SpatialData`.
 The launcher retains a 16 GiB G1 heap for full-OSM memory headroom. The fastest measured regional
 configuration used `-JavaHeap 8g -GarbageCollector parallel`; it used more resident RAM than G1
 despite the smaller heap limit. Validate the complete OSM feature set before adopting that limit.

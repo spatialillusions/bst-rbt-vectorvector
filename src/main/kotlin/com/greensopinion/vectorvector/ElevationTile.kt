@@ -27,6 +27,9 @@ data class ElevationBounds(val min: Elevation, val max: Elevation)
 val INVALID_ELEVATION = Elevation(meters = Double.NEGATIVE_INFINITY)
 
 abstract class ElevationTile {
+    /** Conservative owned/referenced sample storage for cache budgeting. */
+    open val retainedBytes: Long get() = 128
+    internal open val retainedSamples: FloatArray? get() = null
     abstract val empty: Boolean
     abstract val extent: Int
     val elevationBounds: ElevationBounds by lazy {
@@ -48,6 +51,15 @@ abstract class ElevationTile {
     }
 
     abstract fun get(x: Int, y: Int): Elevation
+
+    /** Row-major materialization hook; implementations may fuse decoding/resampling. */
+    open fun copySamples(x: Int, y: Int, width: Int, height: Int, out: DoubleArray,
+                         offset: Int = 0, stride: Int = width) {
+        for (row in 0 until height) for (column in 0 until width) {
+            val value = get(x + column, y + row)
+            out[offset + row * stride + column] = if (value.valid) value.meters else Double.NaN
+        }
+    }
 
     open fun materialize(buffer: Int = 0): ElevationTile = if (empty) this else MaterializedTile(this, buffer)
 

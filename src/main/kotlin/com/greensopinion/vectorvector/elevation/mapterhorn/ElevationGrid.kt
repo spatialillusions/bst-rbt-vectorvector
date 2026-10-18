@@ -65,6 +65,8 @@ class ElevationGrid(val size: Int, val data: FloatArray) {
 }
 
 private class GridElevationTile(private val grid: ElevationGrid) : ElevationTile() {
+    override val retainedSamples get() = grid.data
+    override val retainedBytes: Long get() = grid.data.size * 4L + 128
     override val extent: Int = grid.size
     override val empty: Boolean = grid.data.all { it.isNaN() }
 

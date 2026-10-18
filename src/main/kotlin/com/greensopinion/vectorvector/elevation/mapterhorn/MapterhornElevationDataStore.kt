@@ -1,6 +1,6 @@
 package com.greensopinion.vectorvector.elevation.mapterhorn
 
-import com.google.common.cache.CacheBuilder
+import com.greensopinion.vectorvector.util.budgetedCache
 import com.google.common.cache.CacheLoader
 import com.greensopinion.vectorvector.ElevationTile
 import com.greensopinion.vectorvector.EmptyTile
@@ -13,17 +13,18 @@ import com.greensopinion.vectorvector.pmtiles.PmtilesReader
 import com.greensopinion.vectorvector.pmtiles.PmtilesTileRef
 import java.io.Closeable
 import java.util.Optional
+import io.github.oshai.kotlinlogging.KotlinLogging
 
 /**
  * Routes tile requests to the PMTiles archives that hold them, e.g. the planet (z0–12) plus
  * high-zoom `6-x-y` archives. Archives are tried highest max zoom first; the first one that has the tile wins.
  */
-class MapterhornSourceSet(readers: List<PmtilesReader>, cacheSize: Long = 128) : Closeable {
+class MapterhornSourceSet(readers: List<PmtilesReader>, cacheSize: Long = 128, cacheBytes: Long = 0) : Closeable {
     private val readers = readers.sortedByDescending { it.header.maxZoom }
     private val archiveBounds = this.readers.associateWith {
         LonLatBounds(it.header.minLon, it.header.minLat, it.header.maxLon, it.header.maxLat)
     }
-    private val decoded = CacheBuilder.newBuilder().maximumSize(cacheSize)
+    private val decoded = budgetedCache<Pair<PmtilesReader, PmtilesTileRef>, ElevationGrid>(cacheSize, cacheBytes) { it.data.size * 4L + 128 }
         .build<Pair<PmtilesReader, PmtilesTileRef>, ElevationGrid>()
 
     fun decoded(z: Int, x: Int, y: Int): ElevationGrid? {
@@ -58,6 +59,10 @@ class MapterhornSourceSet(readers: List<PmtilesReader>, cacheSize: Long = 128) :
     override fun close() {
         readers.forEach { it.close() }
     }
+
+    fun reopenSources() = readers.forEach { it.reopenSources() }
+    internal fun retainedSamples() = decoded.asMap().values.map { it.data }
+    internal fun cacheDescription() = "decoded=${decoded.size()} ${decoded.stats()}"
 }
 
 /**
@@ -75,7 +80,8 @@ class MapterhornElevationDataStore(
     private val extent: Int,
     private val metricsProvider: MetricsProvider,
     private val maxOverzoom: Int = 4,
-    cacheSize: Long = 1500
+    cacheSize: Long = 1500,
+    cacheBytes: Long = 0
 ) : ElevationDataStore, Closeable {
     private val nativeSize = 512
 
@@ -84,8 +90,7 @@ class MapterhornElevationDataStore(
     }
 
     /** Decoded native tiles, keyed by Mapterhorn z/x/y, so neighbours read via ElevationTileArea decode once. */
-    private val nativeCache = CacheBuilder.newBuilder()
-        .maximumSize(cacheSize)
+    private val nativeCache = budgetedCache<TileId, Optional<ElevationGrid>>(cacheSize, cacheBytes / 2) { it.orElse(null)?.let { grid -> grid.data.size * 4L + 128 } ?: 64L }
         .build(object : CacheLoader<TileId, Optional<ElevationGrid>>() {
             override fun load(key: TileId): Optional<ElevationGrid> {
                 val grid = sources.decoded(key.z, key.x, key.y) ?: return Optional.empty()
@@ -96,8 +101,7 @@ class MapterhornElevationDataStore(
             }
         })
 
-    private val tileCache = CacheBuilder.newBuilder()
-        .maximumSize(cacheSize)
+    private val tileCache = budgetedCache<TileId, ElevationTile>(cacheSize, cacheBytes / 2) { it.retainedBytes }
         .build(object : CacheLoader<TileId, ElevationTile>() {
             override fun load(key: TileId): ElevationTile = loadTile(key)
         })
@@ -113,6 +117,19 @@ class MapterhornElevationDataStore(
     }
 
     private fun loadTile(tile: TileId): ElevationTile {
+        if (extent == nativeSize) {
+            nativeCache.get(tile).orElse(null)?.let { return it.toTile() }
+            for (levels in 1..minOf(maxOverzoom, tile.z)) {
+                val ancestor = TileId(tile.z - levels, tile.x shr levels, tile.y shr levels)
+                val parent = nativeCache.get(ancestor).orElse(null) ?: continue
+                metricsProvider.get().addCount("Mapterhorn.overzoom")
+                val region = nativeSize shr levels
+                val mask = (1 shl levels) - 1
+                return ResampledElevationTile(parent, (tile.x and mask) * region,
+                    (tile.y and mask) * region, region, nativeSize)
+            }
+            return EmptyTile(extent)
+        }
         val grid = if (extent == nativeSize) {
             grid(tile)
         } else if (tile.z == 0) {
@@ -140,5 +157,17 @@ class MapterhornElevationDataStore(
 
     override fun close() {
         sources.close()
+    }
+
+    override fun afterShard() {
+        val arrays = java.util.Collections.newSetFromMap(java.util.IdentityHashMap<FloatArray, Boolean>())
+        arrays.addAll(sources.retainedSamples())
+        nativeCache.asMap().values.forEach { it.orElse(null)?.let { g -> arrays.add(g.data) } }
+        tileCache.asMap().values.forEach { it.retainedSamples?.let(arrays::add) }
+        KotlinLogging.logger {}.info {
+            "Elevation caches: uniqueSampleMiB=${arrays.sumOf { it.size * 4L } / 1048576} " +
+                "native=${nativeCache.size()} ${nativeCache.stats()} tile=${tileCache.size()} ${tileCache.stats()} " + sources.cacheDescription()
+        }
+        sources.reopenSources()
     }
 }

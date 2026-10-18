@@ -154,6 +154,12 @@ applies to the default profile; use `--rbtSmoothing` to adjust RBT smoothing.
   explicit Z/X/Y bounds; the bounding box still filters that area.
 - `--tileList <file>` limits generation to one `z/x/y` ID per line within the selected range.
 - `--peaks` reads the glacier PBF by default, or accepts its own PBF path.
+- `--elevationCacheMiB` (384 by default) bounds the estimated retained sample data across
+  source, native and derived elevation caches. `--glacierCacheMiB` defaults to 128.
+  Entry limits remain secondary bounds; zero MiB restores count-only caching. These are
+  cache budgets, not limits on total JVM or Windows file-cache memory.
+- Mapterhorn tiles are visited in 8-by-8 spatial blocks to reuse nearby elevation data.
+  `--tileBlockSize 0` selects the original strip traversal.
 - `--rbtSmoothing '13=14/2/2.5'` overrides sigma in elevation pixels, Chaikin iterations and
   simplification epsilon in vector units. See the [tuning record](docs/tuning-log.md).
 
@@ -177,7 +183,8 @@ On the configured Windows machine:
 .\run-planet-sharded.ps1
 ```
 
-Defaults are eight tile workers, 512-entry elevation caches, a 1,024-entry glacier cache, a
+Defaults are eight tile workers, 384 MiB of elevation cache budgets (512-entry bounds),
+128 MiB of glacier cache budgets (1,024-entry bounds), a
 16 GiB G1 heap, and 64 × 64 partitions rooted at z6. Completed shards are reused after interruption;
 final merging copies compressed blobs into a disposable database and builds its index once.
 
@@ -194,6 +201,34 @@ That pilot still loads the **global** selected OSM feature set. Its output is re
 Iceland so startup/index memory can be measured without rendering the entire planet.
 The filtered PBF must first be prepared; see [preflight](docs/planet-preflight.md).
 
+For a planet build, prepare glacier masks and peak records once into z6 partitions.
+The generator then loads at most two nearby partitions instead of building global OSM
+indexes in every worker session. No RBT archive is needed. After building the JAR:
+
+```powershell
+java -Xmx6g -cp target/vectorvector-cli.jar `
+  com.greensopinion.vectorvector.osm.PrepareSpatialInputs `
+  prepared-spatial contour-features.osm.pbf antarctica-ice.wkb contour-features.osm.pbf
+
+.\run-planet-sharded.ps1 -OsmPbf contour-features.osm.pbf `
+  -GlacierWkb antarctica-ice.wkb -SpatialData prepared-spatial `
+  -JavaHeap 6g -G1HeapRegionSize 8m -OutputDir out/planet-prepared
+```
+
+Use `-` for any absent preparation input, for example `prepared-spatial features.osm.pbf -
+features.osm.pbf` when no supplemental ice WKB is available. The preparer records source
+identities, checksums each partition, resumes interrupted preparation, and publishes its
+completion manifest last. Keep the completed directory unchanged during generation. With
+`--spatialData <directory>`, the CLI uses these masks/records; any supplied original OSM/WKB
+paths must match their preparation provenance. Prepared inputs require the RBT profile and
+a starting zoom of at least 6. Preparation still needs the global selected feature set once.
+
+`-ReopenArchivesAfterShard` (CLI `--reopenArchivesAfterShard`) reopens local elevation
+archives after workers and writers finish a shard. This provides a shorter handle lifetime
+on Windows; it does not impose a system cache limit. Keep memory/disk guards and bounded
+worker sessions for unattended runs. The [implementation plan](docs/memory-implementation-plan.md)
+describes the validation and explicit compatibility-import procedure for an existing run.
+
 **Resume with the same command, executable and inputs.** Do not rebuild on resume. CLI argument
 order, input paths/stamps and executable bytes form the run fingerprint. JVM heap/GC settings
 can change on retry. Keep space for completed shards, the new merged archive, index-sort files,
@@ -207,6 +242,7 @@ starting. Global index memory, sustained recovery and larger-than-RAM merging ar
 
 - [Sharding and recovery results](docs/planet-validation.md)
 - [Hardware benchmarks](docs/performance.md) and [bulk merge measurements](docs/merge-performance.md)
+- [Memory implementation and validation](docs/memory-implementation-results.md)
 - [Output size versus RBT contours](docs/contour-output-size.md): matched global samples and lossless compression trials.
 - [RBT quality comparisons](docs/rbt-global-validation.md)
 - [10 m / zoom-14 investigation](docs/ten-meter-contours-investigation.md): a tested research prototype;

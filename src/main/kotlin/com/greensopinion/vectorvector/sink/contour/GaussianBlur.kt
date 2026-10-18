@@ -35,12 +35,7 @@ object GaussianBlur {
     fun materialize(source: ElevationTile, buffer: Int): BufferedGridTile {
         val size = source.extent + 2 * buffer
         val data = DoubleArray(size * size)
-        for (y in 0..<size) {
-            for (x in 0..<size) {
-                val e = source.get(x - buffer, y - buffer)
-                data[y * size + x] = if (e.valid) e.meters else Double.NaN
-            }
-        }
+        source.copySamples(-buffer, -buffer, size, size, data)
         return BufferedGridTile(source.extent, buffer, data)
     }
 
@@ -62,12 +57,7 @@ object GaussianBlur {
         val origin = -buffer - r
 
         val input = workspace?.input(inSize * inSize) ?: DoubleArray(inSize * inSize)
-        for (y in 0..<inSize) {
-            for (x in 0..<inSize) {
-                val e = source.get(origin + x, origin + y)
-                input[y * inSize + x] = if (e.valid) e.meters else Double.NaN
-            }
-        }
+        source.copySamples(origin, origin, inSize, inSize, input)
         // horizontal pass: rows over the full input height, columns over the output width
         val horizontal = workspace?.next(input, inSize * outSize) ?: DoubleArray(inSize * outSize)
         for (y in 0..<inSize) {
@@ -108,15 +98,9 @@ object GaussianBlur {
         var height = width
         val origin = -buffer - total
         var data = workspace?.input(width * height) ?: DoubleArray(width * height)
+        source.copySamples(origin, origin, width, height, data)
         var allZero = true
-        for (y in 0..<height) {
-            for (x in 0..<width) {
-                val e = source.get(origin + x, origin + y)
-                val value = if (e.valid) e.meters else Double.NaN
-                data[y * width + x] = value
-                if (allZero && value != 0.0) allZero = false
-            }
-        }
+        for (i in 0 until width * height) if (data[i] != 0.0) { allZero = false; break }
         // Exact special case: the entire buffered kernel footprint is valid sea-level zero.
         // Check neighbours too; a zero centre alone is insufficient near coastlines.
         if (allZero) return BufferedGridTile(extent, buffer, DoubleArray(outSize * outSize))

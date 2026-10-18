@@ -26,6 +26,8 @@ import com.greensopinion.vectorvector.osm.GlacierLoader
 import com.greensopinion.vectorvector.osm.GlacierWkbLoader
 import com.greensopinion.vectorvector.osm.PeakIndex
 import com.greensopinion.vectorvector.osm.PeakLoader
+import com.greensopinion.vectorvector.osm.Peak
+import com.greensopinion.vectorvector.osm.PreparedSpatialStore
 import com.greensopinion.vectorvector.sink.contour.IceSplitter
 import com.greensopinion.vectorvector.pmtiles.PmtilesReader
 import com.greensopinion.vectorvector.pmtiles.rangeSourceFor
@@ -70,14 +72,23 @@ fun main(args: Array<String>) {
     val profile = contourProfile(options)
     val dataStore = cachingElevationDataStore(options, metricsProvider)
 
+    val spatial = options.spatialData?.let { folder ->
+        PreparedSpatialStore(folder, { records -> createPeakIndex(options, dataStore, records) },
+            options.glacierCacheTiles, options.glacierCacheMiB * 1048576).also {
+            it.validateSource("glaciers", options.glaciers)
+            it.validateSource("ice", options.glacierWkb)
+            it.validateSource("peaks", options.resolvedPeaks)
+        }
+    }
     val peaks by lazy { peakIndex(options, dataStore) }
     val ice by lazy { iceSplitterProvider(options) }
     try {
         PeriodicMetrics(interval = Duration.ofSeconds(30), metrics = metricsProvider.metrics).use {
             runTileBuild(options, metricsProvider, { buildIdentity(options, args) },
-                tileRepositoryFactory(options, metricsProvider)) { factory ->
+                tileRepositoryFactory(options, metricsProvider),
+                afterShard = { if (options.reopenArchivesAfterShard) dataStore.afterShard() }) { factory ->
                 tileSinkToRepository(options, profile, dataStore, metricsProvider, factory,
-                    { peaks }, { ice })
+                    { peaks }, { ice }, spatial)
             }
         }
     } finally {
@@ -118,10 +129,11 @@ private fun cachingElevationDataStore(
             log.info { "${it.name}: z${h.minZoom}-${h.maxZoom} ${h.tileType} bounds=${h.minLon},${h.minLat},${h.maxLon},${h.maxLat}" }
         }
         return MapterhornElevationDataStore(
-            sources = MapterhornSourceSet(readers, cacheSize = options.elevationCacheTiles),
+            sources = MapterhornSourceSet(readers, cacheSize = options.elevationCacheTiles, cacheBytes = options.elevationCacheMiB * 1048576 / 3),
             extent = options.resolvedElevationExtent,
             metricsProvider = metricsProvider,
-            cacheSize = options.elevationCacheTiles
+            cacheSize = options.elevationCacheTiles,
+            cacheBytes = options.elevationCacheMiB * 1048576 * 2 / 3
         )
     }
     if (options.dataFormat == DataSourceFormat.srtm) {
@@ -163,7 +175,8 @@ private fun tileSinkToRepository(
     metricsProvider: SingletonMetricsProvider,
     repositoryFactory: RepositoryFactory,
     peaksProvider: () -> PeakIndex?,
-    iceProvider: () -> ((TileId) -> IceSplitter?)
+    iceProvider: () -> ((TileId) -> IceSplitter?),
+    spatial: PreparedSpatialStore? = null
 ): Map<TileSink, TileRepository> {
     val tileExtent = 256
     val sinks = mutableMapOf<TileSink, TileRepository>()
@@ -192,16 +205,17 @@ private fun tileSinkToRepository(
             )] = repository
         }
         if (options.vector) {
-            val peaks = peaksProvider()
+            val peaks = if (spatial == null) peaksProvider() else null
             val repository = trackedFactory(
                 options.resolvedVectorName, "pbf",
-                listOfNotNull(profile.contourLayer(options.minZ, options.maxZ), peaks?.schema())
+                listOfNotNull(profile.contourLayer(options.minZ, options.maxZ), spatial?.peakSchema ?: peaks?.schema())
             )
             sinks[VectorTileSink(
                 contourOptionsProvider = { tile -> profile.contourOptions(tile.id) },
-                iceSplitterProvider = iceProvider(),
+                iceSplitterProvider = if (spatial == null) iceProvider() else { id -> spatial.ice(id) },
                 gzip = options.resolvedGzipTiles,
-                extraLayers = listOfNotNull(peaks?.let { index -> { tile: TileId -> index.layer(tile) } }),
+                extraLayers = if (spatial != null) listOf({ tile -> spatial.peaks(tile) }) else
+                    listOfNotNull(peaks?.let { index -> { tile: TileId -> index.layer(tile) } }),
                 repository = repository,
                 elevationDataStore = dataStore,
                 metricsProvider = metricsProvider
@@ -253,7 +267,7 @@ private fun attribution(options: CliOptions): String? {
     if (options.dataFormat == DataSourceFormat.mapterhorn) {
         parts += "<a href=\"https://mapterhorn.com/attribution\">© Mapterhorn</a>"
     }
-    if (options.glaciers != null || options.glacierWkb != null || options.resolvedPeaks != null) {
+    if (options.glaciers != null || options.glacierWkb != null || options.resolvedPeaks != null || options.spatialData != null) {
         parts += "<a href=\"https://www.openstreetmap.org/copyright\">© OpenStreetMap contributors</a>"
     }
     return parts.joinToString(" ").ifEmpty { null }
@@ -261,9 +275,15 @@ private fun attribution(options: CliOptions): String? {
 
 private fun peakIndex(options: CliOptions, dataStore: ElevationDataStore): PeakIndex? {
     val file = options.resolvedPeaks ?: return null
+    return createPeakIndex(options, dataStore, PeakLoader(file).load()).also {
+        log.info { "Peaks layer: ${it.size} peaks from ${file.name}" }
+    }
+}
+
+private fun createPeakIndex(options: CliOptions, dataStore: ElevationDataStore, records: List<Peak>): PeakIndex {
     val demZoom = 12
-    val index = PeakIndex(
-        peaks = PeakLoader(file).load(),
+    return PeakIndex(
+        peaks = records,
         minZoom = maxOf(options.peaksMinZoom, options.minZ),
         maxZoom = if (options.profile == ProfileName.rbt) minOf(options.maxZ, 13) else options.maxZ,
         demElevation = { lon, lat ->
@@ -274,8 +294,6 @@ private fun peakIndex(options: CliOptions, dataStore: ElevationDataStore): PeakI
             elevation.get(px, py).takeIf { it.valid }?.meters
         }
     )
-    log.info { "Peaks layer: ${index.size} peaks from ${file.name}" }
-    return index
 }
 
 private fun iceSplitterProvider(options: CliOptions): (TileId) -> IceSplitter? {
@@ -285,7 +303,7 @@ private fun iceSplitterProvider(options: CliOptions): (TileId) -> IceSplitter? {
         options.glaciers?.let { addAll(GlacierLoader(it).load()) }
         options.glacierWkb?.let { addAll(GlacierWkbLoader(it).load()) }
     }
-    val index = GlacierIndex(glaciers, cacheSize = options.glacierCacheTiles)
+    val index = GlacierIndex(glaciers, cacheSize = options.glacierCacheTiles, cacheBytes = options.glacierCacheMiB * 1048576)
     val sources = listOfNotNull(options.glaciers, options.glacierWkb).joinToString(" + ") { it.name }
     log.info { "Loaded ${index.size} glaciers from $sources in ${System.currentTimeMillis() - start} ms" }
     return { tile -> index.forTile(tile)?.let { GlacierIceSplitter(it) } }

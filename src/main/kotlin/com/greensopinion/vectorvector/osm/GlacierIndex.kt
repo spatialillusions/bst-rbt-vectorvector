@@ -1,6 +1,6 @@
 package com.greensopinion.vectorvector.osm
 
-import com.google.common.cache.CacheBuilder
+import com.greensopinion.vectorvector.util.budgetedCache
 import com.google.common.cache.CacheLoader
 import com.greensopinion.vectorvector.TileId
 import com.greensopinion.vectorvector.WebMercator
@@ -26,7 +26,7 @@ import java.util.Optional
  * never cancel out. Clipping is hierarchical: a tile's lon/lat geometry is clipped from its parent's
  * (cached), so huge glaciers like Vatnajökull are only intersected with small geometries at high zooms.
  */
-class GlacierIndex(
+class GlacierIndex @JvmOverloads constructor(
     glaciers: List<Glacier>,
     private val extent: Int = 4096,
     /** Buffer around each tile, in tile units; must exceed the contour clip buffer. */
@@ -34,7 +34,9 @@ class GlacierIndex(
     /** Zoom where clipping starts from the full index instead of a parent tile. */
     private val baseZoom: Int = 6,
     cacheSize: Long = 4000,
-    private val factory: GeometryFactory = GeometryFactory()
+    private val factory: GeometryFactory = GeometryFactory(),
+    cacheBytes: Long = 0,
+    private val preparedRoot: Pair<TileId, Geometry?>? = null
 ) {
     private val tree = STRtree().also { tree ->
         glaciers.forEach { tree.insert(it.geometry.envelopeInternal, it.geometry) }
@@ -47,14 +49,18 @@ class GlacierIndex(
         if (glaciers.isEmpty()) 0.0 else areaKm2(UnaryUnionOp.union(glaciers.map { it.geometry }))
     }
 
-    private val lonLatCache = CacheBuilder.newBuilder()
-        .maximumSize(cacheSize)
+    private val lonLatCache = budgetedCache<TileId, Optional<Geometry>>(cacheSize, cacheBytes) { it.orElse(null)?.let { g -> g.numPoints * 48L + 1024 } ?: 64L }
         .build(object : CacheLoader<TileId, Optional<Geometry>>() {
             override fun load(key: TileId): Optional<Geometry> = Optional.ofNullable(computeLonLat(key))
         })
 
     /** The glacier area within the buffered tile, in lon/lat, or null if there is none. */
-    fun lonLatForTile(tile: TileId): Geometry? = lonLatCache.get(tile).orElse(null)
+    fun lonLatForTile(tile: TileId): Geometry? {
+        // The prepared store already owns this mask. Charging it again to the
+        // child cache can evict useful ancestors and repeatedly redo overlays.
+        if (preparedRoot != null && tile == preparedRoot.first) return preparedRoot.second
+        return lonLatCache.get(tile).orElse(null)
+    }
 
     /** The glacier area within the buffered tile in tile coordinates (y down, [extent] units), or null. */
     fun forTile(tile: TileId): Geometry? {
@@ -85,6 +91,10 @@ class GlacierIndex(
     }
 
     private fun computeLonLat(tile: TileId): Geometry? {
+        if (tile.z <= baseZoom && preparedRoot != null) {
+            require(tile == preparedRoot.first) { "Prepared glacier root mismatch: $tile" }
+            return preparedRoot.second
+        }
         val envelope = bufferedEnvelope(tile)
         val source: Geometry = if (tile.z > baseZoom) {
             lonLatForTile(TileId(tile.z - 1, tile.x / 2, tile.y / 2)) ?: return null

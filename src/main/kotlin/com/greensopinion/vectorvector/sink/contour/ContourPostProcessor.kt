@@ -41,10 +41,7 @@ class ContourPostProcessor(
         clipper: BoxClipper,
         iceSplitter: IceSplitter?
     ): List<ContourFeature> {
-        var l = Chaikin.smooth(line, options.smoothing.chaikinIterations)
-        if (epsilon > 0) {
-            l = Rdp.simplify(l, epsilon)
-        }
+        val l = PrimitiveLineOperations.process(line, options.smoothing.chaikinIterations, epsilon)
         val pieces = iceSplitter?.split(l) ?: listOf(Pair(l, false))
         return pieces.flatMap { (piece, ice) ->
             clipper.clip(piece).mapNotNull { it.roundToGrid() }.map { ContourFeature(level, ice, it) }

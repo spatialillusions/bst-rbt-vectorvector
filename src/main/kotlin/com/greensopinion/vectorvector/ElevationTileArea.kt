@@ -14,6 +14,28 @@ class ElevationTileArea(
     override val empty = tile.empty
     override val extent = tile.extent
 
+    override fun copySamples(x: Int, y: Int, width: Int, height: Int, out: DoubleArray,
+                             offset: Int, stride: Int) {
+        var row = 0
+        while (row < height) {
+            val tileY = Math.floorDiv(y + row, extent)
+            val localY = Math.floorMod(y + row, extent)
+            val rows = minOf(height - row, extent - localY)
+            var column = 0
+            while (column < width) {
+                val tileX = Math.floorDiv(x + column, extent)
+                val localX = Math.floorMod(x + column, extent)
+                val columns = minOf(width - column, extent - localX)
+                val source = if (tileX == 0 && tileY == 0) tile else
+                    store.get(tileId.copy(x = tileId.x + tileX, y = tileId.y + tileY))
+                source.copySamples(localX, localY, columns, rows, out,
+                    offset + row * stride + column, stride)
+                column += columns
+            }
+            row += rows
+        }
+    }
+
     private val top: ElevationTile by lazy {
         store.get(tileId.copy(y = tileId.y - 1))
     }

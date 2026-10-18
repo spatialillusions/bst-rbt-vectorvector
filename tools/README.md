@@ -148,3 +148,24 @@ with automatic restarts, headroom waits, progress/failure limits and final verif
 see the investigation for its manifest requirements and the current resume command.
 Run pure policy tests with
 `python -m unittest discover -s tools -p test_recycle_policy.py -v`.
+
+## Validating a memory upgrade
+
+`validate_memory_upgrade.py --help` describes the paired old/new real-data protocol.
+It checks the independent pilot, repeated mixed-terrain windows and two complete
+previous planet shards, comparing every raw key and compressed payload. Fresh JVMs
+use the same workers, heap and GC region size. The report separates processing
+time from startup and records memory/CPU/system telemetry under the selected output.
+
+After a passed report, `deploy_memory_upgrade.py` freezes a new deployment without
+launching it. Compile `PrintBuildIdentity.java` against the candidate JAR with
+`javac -proc:none -cp <candidate.jar> -d <helper-dir> tools/PrintBuildIdentity.java`.
+`adopt_validated_shards.py` then requires the preservation snapshot, validation
+report and helper. It takes both deployment locks, verifies the old fingerprint
+and every completion stamp, integrity-checks and hashes every completed archive,
+links/copies into the new deployment, records the audit and publishes the new
+fingerprint last. It rejects runtime/processing regressions and insufficient RSS
+improvement. It never rewrites the old fingerprint or source payloads.
+
+These are deliberate migration tools, not an option to bypass normal resume
+identity checks. Review their paths and reports before using them on another run.

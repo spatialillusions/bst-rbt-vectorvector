@@ -80,6 +80,11 @@ class PmtilesReader(
         }
     }
 
+    fun reopenSources() {
+        source.reopen()
+        if (tileSource !== source) tileSource.reopen()
+    }
+
     companion object {
         const val INITIAL_READ = 16384
     }
