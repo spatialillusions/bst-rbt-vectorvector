@@ -1,5 +1,13 @@
 # Windows memory pressure during the planet build
 
+**Current continuation, 18 October:** see the [implementation and validation report](memory-implementation-results.md).
+The optimized producer runs from `F:/vectorvector-planet-optimized-20261018`, with
+prepared spatial inputs, byte budgets, primitive processing and spatial blocks.
+The original 1,698 shards were audited/copied; the old deployment is preserved.
+Archive reopening showed no cache benefit in the four-shard trial and remains
+disabled. Guarded worker recycling and telemetry remain enabled. Earlier resume
+commands in this historical investigation are superseded by the new supervisor.
+
 ## Observed stop on 17 October 2026
 
 The first attempt ran from 14:11 to 17:56 Europe/Stockholm. The monitor stopped

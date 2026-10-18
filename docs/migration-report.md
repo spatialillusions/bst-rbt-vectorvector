@@ -3,6 +3,13 @@
 17 October 2026. The complete phased plan is in [migration-plan.md](migration-plan.md);
 the feature/CLI review is in [migration-compatibility.md](migration-compatibility.md).
 
+**18 October continuation:** the [memory implementation and validation](memory-implementation-results.md)
+records the newer isolated producer, byte-identical old/new comparisons, rejected
+cache/traversal iteration, audited preservation of 1,698 shards and the new active
+deployment at `F:/vectorvector-planet-optimized-20261018`. Use its frozen
+`operations/planet_runner.py`, not the superseded old resume commands below.
+Full-planet generation, final verification and final integration remain pending.
+
 ## Preserved work
 
 - Original Git history base: `63767d8f6200606984bbbb9d8f724473f228e884`.

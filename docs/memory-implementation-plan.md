@@ -95,3 +95,14 @@ Initial preservation: `out/memory-implementation-20261018/baseline-snapshot.json
 Record implementation decisions, failed experiments, test totals, paired results,
 adopted budgets, compatibility-import evidence and deployment details in a linked
 implementation report. Commit source/docs locally on the migration branch.
+
+## Execution status
+
+18 October, 11:47 Europe/Stockholm: phases 1–5 implemented and validated after
+rejecting the initial sustained-cache regression. Archive reopening remains an
+explicit tested option because the real four-shard trial demonstrated no cache
+benefit. Phase 6 preservation/import/deployment passed: all 1,698 completed old
+archives were checked and copied to the separate frozen deployment. The new run
+has completed its first additional shard. Planet generation and automatic final
+merge/verification are continuing; full-planet acceptance remains pending.
+See [measured results and operational paths](memory-implementation-results.md).

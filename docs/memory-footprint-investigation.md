@@ -5,6 +5,9 @@ SHA-256 `7455d9e4c95b6e0ccfc628d79df4256a0780b02d56d5e3a541f8bb558301a4f8`.
 The planet executable, inputs, parameters and supervisor were unchanged. These
 are research recommendations, not changes enabled in the running build.
 
+The subsequent [implementation and validation report](memory-implementation-results.md)
+records the adopted changes, rejected iteration, real-output comparisons and deployment.
+
 ## What the code retains
 
 `Main.kt` constructs the elevation store once and lazy-loads global peak and

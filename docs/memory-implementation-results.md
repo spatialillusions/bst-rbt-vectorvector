@@ -97,7 +97,7 @@ speed, so startup savings cannot hide slower generation.
 Mixed peak RSS fell **40.1%**, processing time **64.8%**, and CPU time **56.0%**.
 Including global-index startup, mixed wall time fell **79.9%**. That startup-heavy
 speedup is not a prediction of whole-planet throughput. Complete Tibet processing
-was **34.0% faster** than the preserved run interval. That sustained comparison
+was **34.0% shorter** than the preserved run interval. That sustained comparison
 uses an earlier 16 GiB production JVM, whereas the mixed paired comparison controls
 both heap and GC region size. No new full old-producer Tibet replay is claimed.
 
@@ -124,6 +124,11 @@ causal speed difference, but demonstrates no cache benefit here. **Reopening is
 implemented/tested and remains opt-in; the new planet deployment leaves it off.**
 Bounded JVM recycling remains the operational handle-lifetime safeguard.
 
+A real prepared-input resume replay reused all four completed test shards without
+changing any completion stamp, merged successfully and again matched all 7,731
+raw payloads. It took 9.06 s and peaked at 196.5 MiB RSS. This check validates
+resume/merge behavior; it is not another generation performance sample.
+
 ## Preservation and adoption
 
 The previous supervisor was stopped first, then its verified worker, at 10:31
@@ -144,3 +149,54 @@ rewritten. Normal resume checks remain enabled.
 Prepared inputs reside at `F:/vectorvector-spatial-20261018-v1`: 4,096 partitions,
 453,901,100 payload bytes. Preparation took 282.2 seconds and peaked at 2,379.7 MiB
 RSS. Preparation is a one-time global-index step, separate from contour runtime.
+
+## Operational continuation
+
+The new frozen deployment is `F:/vectorvector-planet-optimized-20261018`.
+Its `runtime/` contains the candidate JAR, validation reports, preservation
+snapshot and merge verifier. `manifest.json` records exact arguments and input
+identities; `operations/operations.json` records supervisor/tool hashes. The
+original deployment `F:/vectorvector-planet-20261017` remains preserved, including
+the raw feature/WKB and independent reference inputs that the new manifest uses.
+Keep both input locations and the prepared store available.
+
+Production settings are eight workers, a 6 GiB G1 heap, 8 MiB regions, 384/128 MiB
+cache budgets, 8-by-8 tile blocks, prepared spatial inputs and archive reopening
+disabled. Worker sessions remain bounded to 45 minutes with checkpoint recycling
+below 3 GiB available RAM, stable 8 GiB headroom before resuming, early memory
+priority adjustment below 6 GiB, and the existing 1 GiB RAM / 20 GiB disk stop
+floors. Unexpected errors and repeated lack of progress stop the supervisor.
+
+Resume only the new frozen supervisor, without rebuilding or editing its command:
+
+```powershell
+python F:/vectorvector-planet-optimized-20261018/operations/planet_runner.py `
+  F:/vectorvector-planet-optimized-20261018
+```
+
+The runner lock rejects a second supervisor. Operational state is in `status.json`,
+`supervisor.stdout.log` and `monitor/generation-NNNN/`; `shard-import-report.json`
+is the compatibility audit. After all 4,096 shards finish, the supervisor merges
+and runs full source-to-destination raw-payload/integrity verification plus the
+independent sample. Only `planet-complete-and-verified` means the full planet has
+passed. Generation and these final checks remain pending until actually complete.
+
+The audited import completed at 11:45 Europe/Stockholm on 18 October:
+**1,698 archives, 33,548,034,048 bytes**, all integrity/hash checks passed.
+The filesystem required **copies for all archives**, rather than hardlinks.
+The guarded low-memory-priority import took 1,256.6 s, peaked at 50.1 MiB RSS,
+kept at least 13,020 MiB physical RAM available and recorded a 651.6 MiB peak
+system-cache resident counter. Copying plus repeated full reads explains this
+one-time migration cost; it is not contour generation throughput.
+
+The old completion markers and fingerprint were checked again after import and
+were unchanged. The new build fingerprint is
+`68d0f88e610355440e2187297d4f3a16d7fac9d2609f71b96a3d4066225df90d`.
+The supervisor passed its frozen identity preflight and started at **11:46 local**,
+reusing the 1,698 imports before generating new work. Initial supervisor PID was
+33800 and worker PID 3908. A read-only attribution observer follows that first
+worker; per-session monitor telemetry continues across supervised restarts.
+
+At 11:47, the new producer completed `x34-y26`, advancing the total to **1,699**,
+then began `x35-y26`. This confirms actual continuation beyond the imported work.
+Full-planet completion is still pending.

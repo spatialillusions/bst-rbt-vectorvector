@@ -4,6 +4,9 @@ The subsequent [bulk-merge study](merge-performance.md) measures the journal-fre
 The contour-generation measurements below describe the earlier executable and remain unchanged.
 The [17 October planet pilots](planet-pilot-results.md) add complete global OSM indexes,
 sustained regional recovery, glacier-clipping optimization and a merge larger than system RAM.
+The [18 October memory implementation results](memory-implementation-results.md) cover
+prepared spatial partitions, byte budgets, primitive line processing and spatial tile blocks.
+Those newer measurements distinguish startup savings from sustained generation speed.
 
 Measured on the local Core Ultra 7 258V (8 logical CPUs), 31.49 GiB RAM, plugged in, Windows Balanced power plan. Mapterhorn input is on D: (Kingston USB); normal output is on F: (Kingston USB). C: is the internal SK hynix NVMe drive.
 
