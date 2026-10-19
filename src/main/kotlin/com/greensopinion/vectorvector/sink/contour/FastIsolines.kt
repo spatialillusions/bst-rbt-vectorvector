@@ -25,6 +25,7 @@ class FastIsolines(
     fun generate(levels: IntArray, from: Int, to: Int): Map<Int, List<List<DoublePoint>>> {
         if (levels.isEmpty()) return emptyMap()
         val sorted = levels.sortedArray()
+        val lookup = LevelLookup(sorted)
         val step = sorted.fold(0) { g, v -> gcd(g, Math.abs(v)) }.toDouble()
         val segments = arrayOfNulls<SegmentList>(sorted.size)
         val i0 = from + origin
@@ -42,7 +43,7 @@ class FastIsolines(
                 // levels L with lo <= L < hi
                 // all levels are multiples of step: most cells contain none, skip them without a search
                 if (step > 0 && Math.ceil(lo / step) * step >= hi) continue
-                var k = firstAtLeast(sorted, lo)
+                var k = lookup.firstAtLeast(lo)
                 while (k < sorted.size && sorted[k] < hi) {
                     val level = sorted[k]
                     val list = segments[k] ?: SegmentList().also { segments[k] = it }
@@ -60,14 +61,31 @@ class FastIsolines(
 
     private tailrec fun gcd(a: Int, b: Int): Int = if (b == 0) a else gcd(b, a % b)
 
-    private fun firstAtLeast(sorted: IntArray, value: Double): Int {
-        var low = 0
-        var high = sorted.size
-        while (low < high) {
-            val mid = (low + high) ushr 1
-            if (sorted[mid] < value) low = mid + 1 else high = mid
+    internal class LevelLookup(private val sorted: IntArray) {
+        private val first = sorted.first()
+        private val last = sorted.last()
+        // All contour levels are integers. ceil(value) therefore preserves exact boundaries.
+        // Cap storage at 256 KiB per active tile; extreme ranges keep the binary fallback.
+        private val table = if (last.toLong() - first <= 65535) {
+            var index = 0
+            IntArray((last.toLong() - first + 1).toInt()) { offset ->
+                while (sorted[index] < first.toLong() + offset) index++
+                index
+            }
+        } else null
+
+        fun firstAtLeast(value: Double): Int {
+            if (value <= first) return 0
+            if (value > last) return sorted.size
+            table?.let { return it[(Math.ceil(value).toLong() - first).toInt()] }
+            var low = 0
+            var high = sorted.size
+            while (low < high) {
+                val mid = (low + high) ushr 1
+                if (sorted[mid] < value) low = mid + 1 else high = mid
+            }
+            return low
         }
-        return low
     }
 
     private fun cell(x: Int, y: Int, bl: Double, br: Double, tr: Double, tl: Double, level: Int, out: SegmentList) {

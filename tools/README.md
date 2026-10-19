@@ -179,3 +179,21 @@ permits bounded performance variation; it does not demand another 25% RSS saving
 and starts the new frozen supervisor only on success. An unsuccessful stage stops;
 retrying uses a new monitor folder and preserves the earlier logs. See the
 [recovery report](../docs/glacier-topology-recovery.md) for paths and measured results.
+
+`benchmark_planet_speed.py --deployment <frozen-root> --candidate <jar> --out <fresh-folder>`
+compares repeated old/Java/native complete-shard runs, with reversed order, resource
+guards, exact raw payload equality and the independent pilot. Run without competing
+generation jobs. It writes only the fresh output folder and does not pause, alter
+or upgrade a deployment itself. It requires quiet disks/Explorer before trials,
+and rejects timings if Explorer transfer activity resumes. `--quiet-seconds 0`
+is for explicitly labelled diagnostic runs only. See
+[throughput validation](../docs/planet-speed-results.md).
+
+For a native transition, `native_speed_validation.py --old <frozen-root>
+--candidate <jar> --benchmark <clean-report.json> --out <fresh-validation.json>`
+checks the complete controlled report, actual commands/results, decoder choice,
+exact output digests, speed/headroom thresholds and unchanged archive classes.
+The resulting explicit `native-speed` validation kind is supported by the
+deployment/adoption tools; it is not a memory-upgrade exemption. Native property
+selection is included when calculating the new shard fingerprint. The old
+deployment, archive payloads and fingerprint are preserved for rollback.

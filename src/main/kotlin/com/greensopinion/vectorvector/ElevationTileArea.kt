@@ -14,6 +14,33 @@ class ElevationTileArea(
     override val empty = tile.empty
     override val extent = tile.extent
 
+    /** Includes all source tiles touched by the kernel, including wrapped neighbours. */
+    fun zeroFootprint(buffer: Int): Boolean {
+        for (dy in Math.floorDiv(-buffer, extent)..Math.floorDiv(extent - 1 + buffer, extent)) {
+            for (dx in Math.floorDiv(-buffer, extent)..Math.floorDiv(extent - 1 + buffer, extent)) {
+                val source = if (dx == 0 && dy == 0) tile else
+                    store.get(tileId.copy(x = tileId.x + dx, y = tileId.y + dy))
+                if (!source.allZero) return false
+            }
+        }
+        return true
+    }
+
+    fun footprintBounds(buffer: Int): ElevationBounds? {
+        var min = Double.POSITIVE_INFINITY
+        var max = Double.NEGATIVE_INFINITY
+        for (dy in Math.floorDiv(-buffer, extent)..Math.floorDiv(extent - 1 + buffer, extent)) {
+            for (dx in Math.floorDiv(-buffer, extent)..Math.floorDiv(extent - 1 + buffer, extent)) {
+                val source = if (dx == 0 && dy == 0) tile else
+                    store.get(tileId.copy(x = tileId.x + dx, y = tileId.y + dy))
+                val bounds = source.conservativeBounds ?: return null
+                min = minOf(min, bounds.min.meters)
+                max = maxOf(max, bounds.max.meters)
+            }
+        }
+        return ElevationBounds(Elevation(min), Elevation(max))
+    }
+
     override fun copySamples(x: Int, y: Int, width: Int, height: Int, out: DoubleArray,
                              offset: Int, stride: Int) {
         var row = 0

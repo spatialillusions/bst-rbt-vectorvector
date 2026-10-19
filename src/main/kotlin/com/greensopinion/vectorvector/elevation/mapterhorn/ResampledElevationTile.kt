@@ -1,6 +1,7 @@
 package com.greensopinion.vectorvector.elevation.mapterhorn
 
 import com.greensopinion.vectorvector.Elevation
+import com.greensopinion.vectorvector.ElevationBounds
 import com.greensopinion.vectorvector.ElevationTile
 import com.greensopinion.vectorvector.INVALID_ELEVATION
 import kotlin.math.floor
@@ -26,6 +27,18 @@ internal class ResampledElevationTile(
         }
     }
     private val horizontal = Axis(x0, regionSize, extent, source.size)
+    override val allZero get() = source.allZero
+    override val conservativeBounds by lazy {
+        source.conservativeBounds?.let { b ->
+            val magnitude = maxOf(kotlin.math.abs(b.min.meters), kotlin.math.abs(b.max.meters))
+            if (magnitude > 1e6) null else {
+                // Bilinear weights are nonnegative. Allow ample float rounding headroom
+                // for the original multiply/add order, including cancellation around zero.
+                val padding = 16 * Math.ulp(magnitude.toFloat()).toDouble()
+                ElevationBounds(Elevation(b.min.meters - padding), Elevation(b.max.meters + padding))
+            }
+        }
+    }
     private val vertical = Axis(y0, regionSize, extent, source.size)
     override val retainedSamples get() = source.data
     override val retainedBytes: Long get() = source.data.size * 4L + extent * 24L + 256

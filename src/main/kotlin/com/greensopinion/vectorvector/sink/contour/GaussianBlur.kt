@@ -45,9 +45,19 @@ object GaussianBlur {
     const val BOX_THRESHOLD = 2.0
 
     fun blur(source: ElevationTile, buffer: Int, sigma: Double, workspace: Workspace? = null): BufferedGridTile {
+        return requireNotNull(blurInternal(source, buffer, sigma, workspace, null))
+    }
+
+    /** Reject before smoothing only when a generously padded raw range contains no allowed level. */
+    fun blurForContours(source: ElevationTile, buffer: Int, sigma: Double, workspace: Workspace,
+                        containsLevel: (Double, Double) -> Boolean): BufferedGridTile? =
+        blurInternal(source, buffer, sigma, workspace, containsLevel)
+
+    private fun blurInternal(source: ElevationTile, buffer: Int, sigma: Double, workspace: Workspace?,
+                             containsLevel: ((Double, Double) -> Boolean)?): BufferedGridTile? {
         require(sigma > 0) { "sigma must be positive" }
         if (sigma > BOX_THRESHOLD) {
-            return boxBlur(source, buffer, sigma, workspace)
+            return boxBlur(source, buffer, sigma, workspace, containsLevel)
         }
         val r = radius(sigma)
         val kernel = DoubleArray(2 * r + 1) { exp(-((it - r) * (it - r)) / (2 * sigma * sigma)) }
@@ -58,6 +68,7 @@ object GaussianBlur {
 
         val input = workspace?.input(inSize * inSize) ?: DoubleArray(inSize * inSize)
         source.copySamples(origin, origin, inSize, inSize, input)
+        if (reject(input, inSize * inSize, containsLevel)) return null
         // horizontal pass: rows over the full input height, columns over the output width
         val horizontal = workspace?.next(input, inSize * outSize) ?: DoubleArray(inSize * outSize)
         for (y in 0..<inSize) {
@@ -89,7 +100,8 @@ object GaussianBlur {
      * Three successive box filters per axis (running sums, O(1) per pixel). Invalid samples are excluded from
      * each box average; an invalid centre stays invalid.
      */
-    private fun boxBlur(source: ElevationTile, buffer: Int, sigma: Double, workspace: Workspace?): BufferedGridTile {
+    private fun boxBlur(source: ElevationTile, buffer: Int, sigma: Double, workspace: Workspace?,
+                        containsLevel: ((Double, Double) -> Boolean)?): BufferedGridTile? {
         val radii = boxRadii(sigma)
         val total = radii.sum()
         val extent = source.extent
@@ -99,27 +111,45 @@ object GaussianBlur {
         val origin = -buffer - total
         var data = workspace?.input(width * height) ?: DoubleArray(width * height)
         source.copySamples(origin, origin, width, height, data)
-        var allZero = true
-        for (i in 0 until width * height) if (data[i] != 0.0) { allZero = false; break }
+        // One scan supplies both contour rejection and finite/zero fast-path facts.
+        val summary = summarize(data, width * height)
+        if (reject(summary, width * height, containsLevel)) return null
+        val allValid = summary.finite && summary.min >= -1e6 && summary.max <= 1e6
+        val allZero = summary.finite && summary.min == 0.0 && summary.max == 0.0
         // Exact special case: the entire buffered kernel footprint is valid sea-level zero.
         // Check neighbours too; a zero centre alone is insufficient near coastlines.
         if (allZero) return BufferedGridTile(extent, buffer, DoubleArray(outSize * outSize))
         for (r in radii) {
-            data = horizontalBox(data, width, height, r, workspace?.next(data, (width - 2 * r) * height))
+            data = horizontalBox(data, width, height, r, workspace?.next(data, (width - 2 * r) * height), allValid)
             width -= 2 * r
         }
         for ((index, r) in radii.withIndex()) {
             val destination = if (index == radii.lastIndex) null else workspace?.next(data, width * (height - 2 * r))
-            data = verticalBox(data, width, height, r, destination)
+            data = verticalBox(data, width, height, r, destination, allValid)
             height -= 2 * r
         }
         check(width == outSize && height == outSize)
         return BufferedGridTile(extent, buffer, data)
     }
 
-    private fun horizontalBox(data: DoubleArray, width: Int, height: Int, r: Int, destination: DoubleArray? = null): DoubleArray {
+    private fun horizontalBox(data: DoubleArray, width: Int, height: Int, r: Int, destination: DoubleArray? = null,
+                              allValid: Boolean = false): DoubleArray {
         val outWidth = width - 2 * r
         val out = destination ?: DoubleArray(outWidth * height)
+        if (allValid) {
+            val count = 2 * r + 1
+            for (y in 0 until height) {
+                val base = y * width
+                var sum = 0.0
+                for (i in 0 until 2 * r) sum += data[base + i]
+                for (x in 0 until outWidth) {
+                    sum += data[base + x + 2 * r]
+                    out[y * outWidth + x] = sum / count
+                    sum -= data[base + x]
+                }
+            }
+            return out
+        }
         for (y in 0..<height) {
             val base = y * width
             val outBase = y * outWidth
@@ -151,10 +181,25 @@ object GaussianBlur {
     }
 
     /** Row-major vertical pass with per-column running sums (cache friendly). */
-    private fun verticalBox(data: DoubleArray, width: Int, height: Int, r: Int, destination: DoubleArray? = null): DoubleArray {
+    private fun verticalBox(data: DoubleArray, width: Int, height: Int, r: Int, destination: DoubleArray? = null,
+                            allValid: Boolean = false): DoubleArray {
         val outHeight = height - 2 * r
         val out = destination ?: DoubleArray(width * outHeight)
         val sums = DoubleArray(width)
+        if (allValid) {
+            val count = 2 * r + 1
+            for (row in 0 until 2 * r) for (x in 0 until width) sums[x] += data[row * width + x]
+            for (y in 0 until outHeight) {
+                val addBase = (y + 2 * r) * width
+                val removeBase = y * width
+                for (x in 0 until width) {
+                    sums[x] += data[addBase + x]
+                    out[y * width + x] = sums[x] / count
+                    sums[x] -= data[removeBase + x]
+                }
+            }
+            return out
+        }
         val counts = IntArray(width)
         fun add(row: Int, sign: Int) {
             val base = row * width
@@ -178,6 +223,39 @@ object GaussianBlur {
             add(o, -1)
         }
         return out
+    }
+
+    private fun reject(data: DoubleArray, length: Int, containsLevel: ((Double, Double) -> Boolean)?): Boolean {
+        if (containsLevel == null) return false
+        return reject(summarize(data, length), length, containsLevel)
+    }
+
+    private data class InputSummary(val min: Double, val max: Double, val finite: Boolean)
+
+    private fun summarize(data: DoubleArray, length: Int): InputSummary {
+        var min = Double.POSITIVE_INFINITY
+        var max = Double.NEGATIVE_INFINITY
+        var finite = true
+        for (i in 0 until length) {
+            val value = data[i]
+            if (!value.isFinite()) finite = false
+            if (value.isNaN()) continue
+            min = minOf(min, value)
+            max = maxOf(max, value)
+        }
+        return InputSummary(min, max, finite)
+    }
+
+    private fun reject(summary: InputSummary, length: Int, containsLevel: ((Double, Double) -> Boolean)?): Boolean {
+        if (containsLevel == null) return false
+        val min = summary.min
+        val max = summary.max
+        if (min > max) return true
+        // Positive normalized kernels cannot exceed the input range in real arithmetic.
+        // A full metre of padding dwarfs accumulation error at these bounded DEM sizes/values.
+        // Unusual user inputs fall back to the original calculation without rejection.
+        if (length > 4096 * 4096 || min < -1e6 || max > 1e6) return false
+        return !containsLevel(kotlin.math.floor(min) - 1, kotlin.math.ceil(max) + 1)
     }
 
     private fun weighted(data: DoubleArray, centre: Int, stride: Int, kernel: DoubleArray, r: Int): Double {

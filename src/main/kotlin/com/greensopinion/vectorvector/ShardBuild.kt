@@ -48,6 +48,9 @@ internal fun buildIdentity(options: CliOptions, args: Array<String>): String {
     val digest = MessageDigest.getInstance("SHA-256")
     fun add(value: String) { digest.update(value.toByteArray(Charsets.UTF_8)); digest.update(0.toByte()) }
     add("vectorvector-shards-v1")
+    // Decoder selection is a JVM property, not part of the CLI argument list.
+    // Refuse a mixed-backend resume even though validated samples are byte-identical.
+    add("webpDecoder=" + System.getProperty("vectorvector.webpDecoder", "java"))
     args.forEach(::add)
     val inputs = options.pmtiles.filterNot { it.startsWith("http://") || it.startsWith("https://") }.map(::File) +
         listOfNotNull(options.dataDir, options.glaciers, options.glacierWkb, options.resolvedPeaks, options.tileList, options.spatialData)

@@ -14,6 +14,23 @@ import java.awt.image.BufferedImage
 
 class TerrariumDecoderTest {
     @Test
+    fun `native WebP matches Java elevation bits for fixture and transparent encoded pixels`() {
+        org.junit.jupiter.api.Assumptions.assumeTrue(dev.matrixlab.webp4j.WebPCodec.isAvailable())
+        val tile = WebMercator.tileAt(-16.677, 63.999, 10)
+        val fixture = PmtilesReader(FileRangeSource(fixtureFile)).use { it.getTile(tile.z, tile.x, tile.y)!! }
+        val image = BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB)
+        for (y in 0 until 16) for (x in 0 until 16) {
+            val alpha = when ((x + y) % 3) { 0 -> 0; 1 -> 128; else -> 255 }
+            image.setRGB(x, y, (alpha shl 24) or (128 shl 16) or (x shl 8) or y)
+        }
+        val encoded = dev.matrixlab.webp4j.WebPCodec.encodeLosslessImage(image)
+        for (bytes in listOf(fixture, encoded)) {
+            val java = TerrariumDecoder.decode(javax.imageio.ImageIO.read(java.io.ByteArrayInputStream(bytes)))
+            val native = TerrariumDecoder.decode(dev.matrixlab.webp4j.WebPCodec.decodeImage(bytes))
+            assertThat(native.data.map { it.toBits() }).containsExactlyElementsOf(java.data.map { it.toBits() })
+        }
+    }
+    @Test
     fun `memory input retains the same decoded float bits as standard ImageIO input`() {
         val tile = WebMercator.tileAt(-16.677, 63.999, 10)
         val webp = PmtilesReader(FileRangeSource(fixtureFile)).use { it.getTile(tile.z, tile.x, tile.y)!! }

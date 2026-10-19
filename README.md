@@ -164,6 +164,9 @@ applies to the default profile; use `--rbtSmoothing` to adjust RBT smoothing.
   cache budgets, not limits on total JVM or Windows file-cache memory.
 - Mapterhorn tiles are visited in 8-by-8 spatial blocks to reuse nearby elevation data.
   `--tileBlockSize 0` selects the original strip traversal.
+- The [throughput validation](docs/planet-speed-results.md) describes conservative empty-area
+  rejection, bounded smoothing/contour optimizations and an experimental native WebP decoder.
+  Java decoding remains the default; native selection does not change the source data.
 - `--rbtSmoothing '13=14/2/2.5'` overrides sigma in elevation pixels, Chaikin iterations and
   simplification epsilon in vector units. See the [tuning record](docs/tuning-log.md).
 

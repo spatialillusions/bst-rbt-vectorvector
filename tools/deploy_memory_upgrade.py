@@ -4,6 +4,7 @@ import hashlib
 import json
 from pathlib import Path
 import shutil
+from native_speed_validation import validate_evidence
 
 
 def digest(path):
@@ -36,8 +37,13 @@ def main():
         p.error('Validation used another prepared store')
     rotation = json.loads(a.rotation_validation.read_text())
     topology=report.get('validation_kind')=='topology-recovery'
-    rotation_expected=Path(previous['archive_rotation_validation']) if topology else a.rotation_validation
-    if rotation.get('checks') != 'passed' or (digest(a.rotation_validation)!=digest(rotation_expected) if topology else digest(Path(rotation['source_validation']))!=digest(a.validation)):
+    speed=report.get('validation_kind')=='native-speed'
+    if speed:
+        validate_evidence(report,old)
+        if a.reopen_archives:p.error('Native-speed validation used archive reopening disabled')
+    prepared=topology or speed
+    rotation_expected=Path(previous['archive_rotation_validation']) if prepared else a.rotation_validation
+    if rotation.get('checks') != 'passed' or (digest(a.rotation_validation)!=digest(rotation_expected) if prepared else digest(Path(rotation['source_validation']))!=digest(a.validation)):
         p.error('Matching passed archive-rotation validation is required')
     # Verify original immutable inputs before creating anything.
     for item in previous['immutable_files']:
@@ -63,7 +69,7 @@ def main():
     command = previous['java_command'].copy()
     cli = command[command.index('-jar')+2:]
     cli[cli.index('-o')+1] = str(new/'tiles')
-    if not topology:
+    if not prepared:
         cli += ['--spatialData',str(a.spatial.resolve()),'--elevationCacheMiB','384',
                 '--glacierCacheMiB','128','--tileBlockSize','8']
     else:
@@ -77,7 +83,7 @@ def main():
     command = [command[0],'-Xms1g','-Xmx'+report['settings']['heap'],
                '-XX:+UseG1GC','-XX:G1HeapRegionSize=8m','-XX:+ExitOnOutOfMemoryError',
                '-Xlog:gc*:file="'+str(new/'gc.log').replace('\\','/')+'":time,uptime,level,tags:filecount=10,filesize=64m',
-               '-jar',str(jar),*cli]
+               *(['-Dvectorvector.webpDecoder=native'] if speed else []),'-jar',str(jar),*cli]
     items = [item for item in previous['immutable_files']
              if Path(item['path']).parent != old/'runtime']
     def frozen(path):

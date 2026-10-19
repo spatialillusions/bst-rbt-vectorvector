@@ -11,12 +11,21 @@ import javax.imageio.stream.ImageInputStream
 import javax.imageio.stream.MemoryCacheImageInputStream
 
 object TerrariumDecoder {
+    private val decoder = System.getProperty("vectorvector.webpDecoder", "java").also {
+        require(it == "java" || it == "native") { "vectorvector.webpDecoder must be java or native" }
+    }
     init {
         ImageIO.scanForPlugins()
     }
 
     /** Decodes an encoded image (webp/png) into elevations in metres, row-major with y down. */
     fun decode(bytes: ByteArray): ElevationGrid {
+        if (decoder == "native" && bytes.size >= 12 &&
+            bytes[0] == 82.toByte() && bytes[1] == 73.toByte() && bytes[2] == 70.toByte() && bytes[3] == 70.toByte() &&
+            bytes[8] == 87.toByte() && bytes[9] == 69.toByte() && bytes[10] == 66.toByte() && bytes[11] == 80.toByte()) {
+            check(dev.matrixlab.webp4j.WebPCodec.isAvailable()) { "Native WebP decoder unavailable on this platform" }
+            return decode(dev.matrixlab.webp4j.WebPCodec.decodeImage(bytes))
+        }
         // Preserve ImageIO's provider ordering, but avoid a disk-cache copy of bytes already in RAM.
         // In particular this keeps TwelveMonkeys' buffered channel stream with its memory backend.
         val stream = memoryStream(bytes)

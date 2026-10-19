@@ -94,22 +94,27 @@ class DiskCounters:
         self.dll.PdhCloseQuery(self.query)
 
 
-def wait_for_explorer(seconds):
+def wait_for_explorer(seconds, timeout_seconds=None):
     """Wait for a sustained quiet interval, without pausing or changing the user's transfers."""
-    ids = json.loads(subprocess.check_output([
-        "powershell", "-NoProfile", "-Command", "@(Get-Process explorer).Id | ConvertTo-Json -Compress"
-    ], creationflags=subprocess.CREATE_NO_WINDOW, text=True))
+    raw_ids = subprocess.check_output([
+        "powershell", "-NoProfile", "-Command",
+        "@(Get-Process explorer -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Id) | ConvertTo-Json -Compress"
+    ], creationflags=subprocess.CREATE_NO_WINDOW, text=True)
+    ids = json.loads(raw_ids.strip() or '[]') or []
     if isinstance(ids, int):
         ids = [ids]
     handles = [kernel.OpenProcess(0x1000 | 0x0010, False, pid) for pid in ids]
     handles = [h for h in handles if h]
     disks = DiskCounters()
     quiet = time.perf_counter()
+    started = quiet
     last_print = 0
     try:
         before = sum(snapshot(h)[key] for h in handles for key in ("read_bytes", "write_bytes"))
         previous = time.perf_counter()
         while time.perf_counter() - quiet < seconds:
+            if timeout_seconds is not None and time.perf_counter() - started >= timeout_seconds:
+                raise TimeoutError('Disk/Explorer activity did not become quiet before the benchmark timeout')
             time.sleep(5)
             now = time.perf_counter()
             current = sum(snapshot(h)[key] for h in handles for key in ("read_bytes", "write_bytes"))

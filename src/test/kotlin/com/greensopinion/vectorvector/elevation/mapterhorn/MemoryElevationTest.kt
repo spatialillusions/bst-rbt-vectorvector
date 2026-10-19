@@ -5,6 +5,23 @@ import org.assertj.core.api.Assertions.assertThat
 import java.util.Random
 
 class MemoryElevationTest {
+    @Test fun `conservative parent bounds contain child samples including cancellation and missing data`() {
+        val random = Random(84)
+        for (scale in listOf(0.0, 0.001, 10.0, 10000.0, 1e6)) {
+            val source = ElevationGrid(32, FloatArray(1024) {
+                if (it % 37 == 0) Float.NaN else ((random.nextDouble() * 2 - 1) * scale).toFloat()
+            })
+            for (region in listOf(2, 8, 16)) {
+                val view = ResampledElevationTile(source, 3, 5, region, 64)
+                val bounds = requireNotNull(view.conservativeBounds)
+                for (y in 0 until 64) for (x in 0 until 64) {
+                    val value = view.get(x, y)
+                    if (value.valid) assertThat(value.meters).isBetween(bounds.min.meters, bounds.max.meters)
+                }
+                assertThat(view.allZero).isFalse() // NaNs prevent the exact-zero shortcut.
+            }
+        }
+    }
     @Test fun `child views preserve every float sample and bulk materialization`() {
         val random = Random(17)
         val source = ElevationGrid(512, FloatArray(512 * 512) {

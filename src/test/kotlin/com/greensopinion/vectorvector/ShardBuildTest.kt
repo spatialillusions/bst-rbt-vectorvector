@@ -21,6 +21,24 @@ class ShardBuildTest {
     @TempDir lateinit var dir: File
 
     @Test
+    fun `WebP decoder selection changes resume identity and default equals explicit Java`() {
+        val previous = System.getProperty("vectorvector.webpDecoder")
+        try {
+            val elevation = File(dir, "elevation").also { it.mkdirs() }
+            val options = CliOptions().apply { dataDir = elevation }
+            System.clearProperty("vectorvector.webpDecoder")
+            val default = buildIdentity(options, emptyArray())
+            System.setProperty("vectorvector.webpDecoder", "java")
+            assertThat(buildIdentity(options, emptyArray())).isEqualTo(default)
+            System.setProperty("vectorvector.webpDecoder", "native")
+            assertThat(buildIdentity(options, emptyArray())).isNotEqualTo(default)
+        } finally {
+            if (previous == null) System.clearProperty("vectorvector.webpDecoder")
+            else System.setProperty("vectorvector.webpDecoder", previous)
+        }
+    }
+
+    @Test
     fun `additional ice input changes the resume fingerprint`() {
         val elevation = File(dir, "elevation").also { it.mkdirs() }
         File(elevation, "tile.tif").writeText("fixture")

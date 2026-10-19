@@ -55,12 +55,31 @@ class ContourPostProcessor(
         // generate a little beyond the clip box so clipping produces clean cuts
         val contourBuffer = maxOf(options.buffer, ceil(options.clipBuffer / factor).toInt() + 1)
         val sigma = options.smoothing.sigmaPx
-        val area = ElevationTileArea(tile, dataStore.get(tile), dataStore).scale(options.multiplier)
+        val sourceArea = ElevationTileArea(tile, dataStore.get(tile), dataStore)
+        val area = sourceArea.scale(options.multiplier)
         if (area.empty) {
             return mapOf()
         }
+        val radius = if (sigma > GaussianBlur.BOX_THRESHOLD) GaussianBlur.boxRadii(sigma).sum()
+            else if (sigma > 0) GaussianBlur.radius(sigma) else 0
+        // Zero has no contour level; peak layers are generated independently by the sink.
+        if (sourceArea.zeroFootprint(contourBuffer + radius)) return emptyMap()
+        if (options.multiplier == 1.0) {
+            sourceArea.footprintBounds(contourBuffer + radius)?.let { bounds ->
+                val min = bounds.min.meters
+                val max = bounds.max.meters
+                if (min >= -1e6 && max <= 1e6 && FastIsolines.levels(
+                        kotlin.math.floor(min) - 1, kotlin.math.ceil(max) + 1, options.minorLevel) {
+                        it > options.minLevelExclusive && options.levelFilter?.invoke(it) != false
+                    }.isEmpty()) return emptyMap()
+            }
+        }
         val grid = if (sigma > 0) {
-            GaussianBlur.blur(area, contourBuffer, sigma, blurWorkspace.get())
+            GaussianBlur.blurForContours(area, contourBuffer, sigma, blurWorkspace.get()) { min, max ->
+                FastIsolines.levels(min, max, options.minorLevel) {
+                    it > options.minLevelExclusive && options.levelFilter?.invoke(it) != false
+                }.isNotEmpty()
+            } ?: return emptyMap()
         } else {
             GaussianBlur.materialize(area, contourBuffer)
         }

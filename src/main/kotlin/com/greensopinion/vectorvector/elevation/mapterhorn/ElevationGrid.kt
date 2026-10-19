@@ -1,12 +1,29 @@
 package com.greensopinion.vectorvector.elevation.mapterhorn
 
 import com.greensopinion.vectorvector.Elevation
+import com.greensopinion.vectorvector.ElevationBounds
 import com.greensopinion.vectorvector.ElevationTile
 import com.greensopinion.vectorvector.INVALID_ELEVATION
 import kotlin.math.floor
 
 /** A square grid of elevations in metres, row-major with y down. NaN means no data. */
 class ElevationGrid(val size: Int, val data: FloatArray) {
+    private data class Summary(val bounds: ElevationBounds?, val zero: Boolean)
+    private val summary: Summary by lazy {
+        var min = Float.POSITIVE_INFINITY
+        var max = Float.NEGATIVE_INFINITY
+        var zero = true
+        for (v in data) {
+            if (v != 0f) zero = false
+            if (v.isNaN()) continue
+            min = minOf(min, v)
+            max = maxOf(max, v)
+        }
+        Summary(if (min.isFinite() && max.isFinite())
+            ElevationBounds(Elevation(min.toDouble()), Elevation(max.toDouble())) else null, zero)
+    }
+    val allZero get() = summary.zero
+    val conservativeBounds get() = summary.bounds
     init {
         require(data.size == size * size) { "expected ${size * size} values but got ${data.size}" }
     }
@@ -65,6 +82,8 @@ class ElevationGrid(val size: Int, val data: FloatArray) {
 }
 
 private class GridElevationTile(private val grid: ElevationGrid) : ElevationTile() {
+    override val allZero get() = grid.allZero
+    override val conservativeBounds get() = grid.conservativeBounds
     override val retainedSamples get() = grid.data
     override val retainedBytes: Long get() = grid.data.size * 4L + 128
     override val extent: Int = grid.size

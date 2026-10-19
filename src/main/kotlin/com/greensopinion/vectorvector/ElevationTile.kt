@@ -27,6 +27,10 @@ data class ElevationBounds(val min: Elevation, val max: Elevation)
 val INVALID_ELEVATION = Elevation(meters = Double.NEGATIVE_INFINITY)
 
 abstract class ElevationTile {
+    /** True only when every sample is known to be valid sea-level zero. */
+    open val allZero: Boolean get() = false
+    /** Optional conservative range, including any interpolation rounding; unknown means no shortcut. */
+    open val conservativeBounds: ElevationBounds? get() = null
     /** Conservative owned/referenced sample storage for cache budgeting. */
     open val retainedBytes: Long get() = 128
     internal open val retainedSamples: FloatArray? get() = null

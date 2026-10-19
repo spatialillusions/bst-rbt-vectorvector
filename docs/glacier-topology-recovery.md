@@ -125,9 +125,19 @@ progress limits and automatic full merge/raw-payload/sample verification.
 
 The corrected frozen deployment is `F:/vectorvector-planet-repaired-20261019`,
 with producer source commit `c5dd36d`. The continuation driver started on
-19 October at approximately 08:40 local (initial driver PID 5304). At handoff
-it is auditing/importing the 3,388 completed archives; generation has not yet
-restarted. It proceeds automatically after successful import and identity checks.
+19 October at approximately 08:40 local (initial driver PID 5304). The audited
+import passed for all 3,388 completed archives at 09:13 local, followed by a
+successful frozen-runtime/input identity check. The supervisor started generation
+at 09:13:20 local. By 09:16, 3,397 of 4,096 shards were complete, including the
+formerly failing `x60-y52` shard. The worker used approximately 1.45 GiB RSS with
+9.70 GiB physical memory available at 09:17. These are progress measurements;
+the complete planet and final verification remain pending.
+
+The new deployment fingerprint is
+`484f0eecea880352c5ed8d6f73c99922a8290f4a2ea3be7c4fc282fb3d0a359e`.
+The supervisor continues automatically through the remaining shards, merging,
+full shard-to-output payload verification and the independent quality sample.
+Only `planet-complete-and-verified` in `status.json` means this sequence passed.
 
 Follow `upgrade-status.json` and `import-monitor/run.log` during adoption, then
 `status.json` and `supervisor.stdout.log` once the supervisor starts. Per-worker
