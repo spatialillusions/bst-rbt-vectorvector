@@ -35,7 +35,9 @@ def main():
     if Path(report['settings']['spatial']).resolve() != a.spatial.resolve():
         p.error('Validation used another prepared store')
     rotation = json.loads(a.rotation_validation.read_text())
-    if rotation.get('checks') != 'passed' or digest(Path(rotation['source_validation'])) != digest(a.validation):
+    topology=report.get('validation_kind')=='topology-recovery'
+    rotation_expected=Path(previous['archive_rotation_validation']) if topology else a.rotation_validation
+    if rotation.get('checks') != 'passed' or (digest(a.rotation_validation)!=digest(rotation_expected) if topology else digest(Path(rotation['source_validation']))!=digest(a.validation)):
         p.error('Matching passed archive-rotation validation is required')
     # Verify original immutable inputs before creating anything.
     for item in previous['immutable_files']:
@@ -61,8 +63,15 @@ def main():
     command = previous['java_command'].copy()
     cli = command[command.index('-jar')+2:]
     cli[cli.index('-o')+1] = str(new/'tiles')
-    cli += ['--spatialData',str(a.spatial.resolve()),'--elevationCacheMiB','384',
-            '--glacierCacheMiB','128','--tileBlockSize','8']
+    if not topology:
+        cli += ['--spatialData',str(a.spatial.resolve()),'--elevationCacheMiB','384',
+                '--glacierCacheMiB','128','--tileBlockSize','8']
+    else:
+        for flag,value in [('--spatialData',str(a.spatial.resolve())),('--elevationCacheMiB','384'),('--glacierCacheMiB','128'),('--tileBlockSize','8')]:
+            actual=cli[cli.index(flag)+1]
+            mismatch=(Path(actual).resolve()!=Path(value).resolve()) if flag=='--spatialData' else actual!=value
+            if mismatch:
+                raise ValueError('Frozen resource/input option differs from validation: '+flag)
     if a.reopen_archives:
         cli += ['--reopenArchivesAfterShard']
     command = [command[0],'-Xms1g','-Xmx'+report['settings']['heap'],
@@ -76,6 +85,7 @@ def main():
         return {'path':str(path.resolve()),'bytes':st.st_size,'mtime_ns':st.st_mtime_ns,'sha256':digest(path)}
     items += [frozen(path) for path in runtime.iterdir() if path.is_file()]
     items += [frozen(path) for path in sorted(a.spatial.resolve().rglob('*')) if path.is_file()]
+    items=list({str(Path(item['path']).resolve()):item for item in items}.values())
     manifest = {**previous,'source_code_commit':a.commit,'jar_sha256':digest(jar),
         'java_command':command,'immutable_files':items,'expected_shards':4096,
         'previous_deployment':str(old),'validation_report':str(runtime/'validation.json'),

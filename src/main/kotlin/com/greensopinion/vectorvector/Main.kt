@@ -306,7 +306,7 @@ private fun iceSplitterProvider(options: CliOptions): (TileId) -> IceSplitter? {
     val index = GlacierIndex(glaciers, cacheSize = options.glacierCacheTiles, cacheBytes = options.glacierCacheMiB * 1048576)
     val sources = listOfNotNull(options.glaciers, options.glacierWkb).joinToString(" + ") { it.name }
     log.info { "Loaded ${index.size} glaciers from $sources in ${System.currentTimeMillis() - start} ms" }
-    return { tile -> index.forTile(tile)?.let { GlacierIceSplitter(it) } }
+    return { tile -> index.forTile(tile)?.let { GlacierIceSplitter(it, tile = tile) } }
 }
 
 private fun contourProfile(options: CliOptions): ContourProfile = when (options.profile) {

@@ -60,6 +60,40 @@ class GlacierIceSplitterTest {
         val pieces = GlacierIceSplitter(glacier, minPieceLength = 4.0).split(Line(listOf(DoublePoint(0.0, 1001.0), DoublePoint(1002.0, 999.0))))
         assertThat(pieces.filter { it.second }).isEmpty()
     }
+
+    @Test
+    fun `self intersecting mask is repaired once and keeps both lobes`() {
+        val broken = factory.createPolygon(ring(1000.0, 1000.0, 3000.0, 3000.0,
+            1000.0, 3000.0, 3000.0, 1000.0, 1000.0, 1000.0).coordinates)
+        assertThat(broken.isValid).isFalse()
+        val splitter = GlacierIceSplitter(broken)
+        for (y in listOf(1500.0, 2500.0, 1500.0)) {
+            assertThat(sequence(splitter.split(horizontal(y)))).containsExactly(
+                Triple(0.0, 1500.0, false), Triple(1500.0, 2500.0, true), Triple(2500.0, 4096.0, false))
+        }
+        assertThat(splitter.repairCount).isEqualTo(1)
+    }
+
+    @Test
+    fun `repair preserves holes and all contour length`() {
+        val broken = factory.createPolygon(
+            factory.createLinearRing(ring(1000.0, 1000.0, 3000.0, 3000.0,
+                1000.0, 3000.0, 3000.0, 1000.0, 1000.0, 1000.0).coordinates),
+            arrayOf(factory.createLinearRing(square(1900.0, 2400.0, 2100.0, 2600.0).coordinates)))
+        val splitter = GlacierIceSplitter(broken)
+        val parts = sequence(splitter.split(horizontal(2500.0)))
+        assertThat(parts).containsExactly(Triple(0.0, 1500.0, false), Triple(1500.0, 1900.0, true),
+            Triple(1900.0, 2100.0, false), Triple(2100.0, 2500.0, true), Triple(2500.0, 4096.0, false))
+        assertThat(parts.sumOf { it.second - it.first }).isEqualTo(4096.0)
+        assertThat(splitter.repairCount).isEqualTo(1)
+    }
+
+    @Test
+    fun `valid masks use original geometry without repair`() {
+        val splitter = GlacierIceSplitter(glacier)
+        for (y in listOf(0.0, 1500.0, 4096.0)) splitter.split(horizontal(y))
+        assertThat(splitter.repairCount).isZero()
+    }
 }
 
 class GlacierGeometryTest {
@@ -135,6 +169,25 @@ class GlacierGeometryTest {
 }
 
 class GlacierProjectionTest {
+    @Test
+    fun `valid geographic polygon with a near edge hole can need repair after Mercator projection`() {
+        val source = factory.createPolygon(
+            factory.createLinearRing(ring(20.0, -70.0, 22.0, -72.0, 20.0, -72.0, 20.0, -70.0).coordinates),
+            arrayOf(factory.createLinearRing(ring(21.0, -71.0001, 20.9, -71.2, 20.7, -71.2, 21.0, -71.0001).coordinates)))
+        assertThat(source.isValid).isTrue()
+        val tile = WebMercator.tileAt(21.0, -71.0, 6)
+        val projected = GlacierIndex(listOf(Glacier("synthetic", source))).forTile(tile)!!
+        assertThat(projected.isValid).isFalse()
+        val y = (WebMercator.latToTileY(-71.05, tile.z) - tile.y) * 4096
+        val line = horizontal(y, -256.0, 4352.0)
+        val splitter = GlacierIceSplitter(projected, minPieceLength = 0.0)
+        val parts = sequence(splitter.split(line))
+        assertThat(splitter.repairCount).isEqualTo(1)
+        assertThat(parts.sumOf { it.second - it.first }).isCloseTo(4608.0, within(1e-8))
+        assertThat(parts.any { it.third }).isTrue()
+        assertThat(source.isValid).isTrue()
+    }
+
     @Test
     fun `local unions preserve overlapping ice and holes after cache eviction`() {
         val tile = TileId(9, 300, 180)

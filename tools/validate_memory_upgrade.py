@@ -73,6 +73,7 @@ def main():
     p.add_argument('--repeats', type=int, default=2)
     p.add_argument('--heap', default='6g')
     p.add_argument('--skip-full-shards', action='store_true')
+    p.add_argument('--topology-recovery', action='store_true', help='Compare two prepared producers and verify the known glacier failure/recovery')
     a = p.parse_args()
     if a.workers <= 0 or a.repeats < 2:
         p.error('Use positive workers and at least two paired repetitions')
@@ -89,13 +90,15 @@ def main():
     report = {'old_jar':str(old_jar),'candidate':str(a.candidate.resolve()),
         'candidate_sha256':hashlib.sha256(a.candidate.read_bytes()).hexdigest(),
         'settings':vars(a).copy(),'runs':{},'comparisons':{}}
+    report['validation_kind']='topology-recovery' if a.topology_recovery else 'memory-upgrade'
     report['settings']={k:str(v) if isinstance(v,Path) else v for k,v in report['settings'].items()}
     def save():
         (a.out/'report.json').write_text(json.dumps(report,indent=2))
-    def run(label, candidate, selection, reopen=True):
+    def run(label, candidate, selection, reopen=True, expect_topology_failure=False):
         folder = a.out/label
         extra = (['--spatialData',str(a.spatial.resolve()),'--elevationCacheMiB','384',
-                  '--glacierCacheMiB','128'] + (['--reopenArchivesAfterShard'] if reopen else [])) if candidate else []
+                  '--glacierCacheMiB','128','--tileBlockSize','8'] +
+                  (['--reopenArchivesAfterShard'] if reopen and not a.topology_recovery else [])) if candidate or a.topology_recovery else []
         cmd = [a.java,'-Xms1g',f'-Xmx{a.heap}','-XX:+UseG1GC','-XX:G1HeapRegionSize=8m',
             '-XX:+ExitOnOutOfMemoryError','-jar',str(a.candidate.resolve() if candidate else old_jar),
             *common,*selection,*extra,'-o',str(folder)]
@@ -103,6 +106,12 @@ def main():
         with folder.with_suffix('.driver.log').open('w') as log:
             result = subprocess.run([sys.executable,str(TOOLS/'monitor_job.py'),'--out',str(monitor),
                 '--min-available-mib','3072','--min-disk-free-gib','20','--',*cmd],stdout=log,stderr=subprocess.STDOUT)
+        if expect_topology_failure:
+            failure=(monitor/'run.log').read_text(encoding='utf-8')
+            if not result.returncode or 'TopologyException' not in failure or 'Failed tile TileId(z=10, x=972, y=845)' not in failure:
+                raise ValueError('Expected frozen-producer glacier failure was not reproduced')
+            report['baseline_failure']={'tile':'10/972/845','exit_code':result.returncode,'topology_exception':True};save()
+            return None
         if result.returncode:
             raise RuntimeError(f'{label} failed; see {monitor}')
         metrics=json.loads((monitor/'result.json').read_text())
@@ -136,6 +145,27 @@ def main():
             output=run(f'full-x{x}-y{y}',True,['-minZ','6','-maxZ','13','-minX',str(x),'-maxX',str(x),'-minY',str(y),'-maxY',str(y)])
             old=a.old_deployment/f'tiles/.shards/contours/x{x}-y{y}.mbtiles'
             report['comparisons'][f'full-x{x}-y{y}']=compare_archives(old,output);save()
+    if a.topology_recovery:
+        failed=a.out/'failed.tiles.txt';failed.write_text('10/972/845\n')
+        selection=world+['--tileList',str(failed.resolve())]
+        run('failed-old',False,selection,expect_topology_failure=True)
+        repaired=run('failed-new',True,selection)
+        with closing(sqlite3.connect(repaired)) as db:
+            assert db.execute('PRAGMA integrity_check').fetchall()==[('ok',)]
+            assert db.execute('SELECT count(*) FROM tiles').fetchone()==(1,)
+        complete=run('full-x60-y52',True,['-minZ','6','-maxZ','13','-minX','60','-maxX','60','-minY','52','-maxY','52'])
+        source=a.old_deployment/'tiles/.shards/contours/x60-y52.mbtiles'
+        with closing(sqlite3.connect(source.resolve().as_uri()+'?mode=ro',uri=True)) as old, closing(sqlite3.connect(complete)) as new:
+            old.execute('PRAGMA cache_size=-16384');new.execute('PRAGMA cache_size=-16384')
+            assert new.execute('PRAGMA integrity_check').fetchall()==[('ok',)]
+            count=0
+            for z,x,y,payload in old.execute('SELECT zoom_level,tile_column,tile_row,tile_data FROM tiles'):
+                if new.execute('SELECT tile_data FROM tiles WHERE zoom_level=? AND tile_column=? AND tile_row=?',(z,x,y)).fetchone()!=(payload,):
+                    raise ValueError('Previously successful tile changed in failed shard')
+                count+=1
+            stored=new.execute('SELECT count(*) FROM tiles').fetchone()[0]
+        report['comparisons']['topology_recovery']={'failed_tile_recovered':True,'complete_shard_integrity':'ok',
+            'stored_tiles':stored,'previous_partial_raw_identical_tiles':count};save()
     for variant in ('old','new'):
         runs=[v for k,v in report['runs'].items() if k.startswith('mixed-'+variant)]
         report[variant+'_medians']={k:statistics.median(v[k] for v in runs) for k in

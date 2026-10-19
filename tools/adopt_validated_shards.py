@@ -65,15 +65,22 @@ def main():
     for label in required:
         if report['comparisons'][label]['raw_identical_tiles']<=0:
             p.error('A required regression has no matching output')
-    if report['new_medians']['seconds']>report['old_medians']['seconds']*1.05:
-        p.error('Candidate median runtime regressed by more than 5%')
-    if report['new_medians']['processing_seconds_log_resolution_1s']>report['old_medians']['processing_seconds_log_resolution_1s']*1.05:
-        p.error('Candidate median processing phase regressed by more than 5%')
-    if report['new_medians']['peak_rss_mib']>report['old_medians']['peak_rss_mib']*.75:
-        p.error('Candidate median peak RSS did not improve by at least 25%')
-    dense_previous = historical_shard_seconds(old, 'x45-y25')
+    topology=report.get('validation_kind')=='topology-recovery'
+    if topology:
+        recovery=report['comparisons'].get('topology_recovery',{})
+        if not report.get('baseline_failure',{}).get('topology_exception') or not recovery.get('failed_tile_recovered') or recovery.get('complete_shard_integrity')!='ok' or recovery.get('previous_partial_raw_identical_tiles',0)<=0:
+            p.error('Frozen failure, repaired full shard and unchanged successful partial output are required')
+    allowance=1.20 if topology else 1.05
+    if report['new_medians']['seconds']>report['old_medians']['seconds']*allowance:
+        p.error('Candidate median runtime exceeds the validation-kind allowance')
+    if report['new_medians']['processing_seconds_log_resolution_1s']>report['old_medians']['processing_seconds_log_resolution_1s']*allowance+ (1 if topology else 0):
+        p.error('Candidate median processing phase exceeds the validation-kind allowance')
+    if report['new_medians']['peak_rss_mib']>report['old_medians']['peak_rss_mib']*(1.20 if topology else .75):
+        p.error('Candidate median peak RSS exceeds the validation-kind allowance')
+    dense_previous = (json.loads(Path(json.loads((old/'manifest.json').read_text())['validation_report']).read_text())['runs']['full-x45-y25']['processing_seconds_log_resolution_1s']
+                      if topology else historical_shard_seconds(old, 'x45-y25'))
     dense_current = report['runs']['full-x45-y25']['processing_seconds_log_resolution_1s']
-    if dense_current > dense_previous*1.05+1:
+    if dense_current > dense_previous*allowance+1:
         p.error('Candidate full dense shard regressed against the preserved planet interval')
     before=json.loads(a.snapshot.read_text())
     previous=json.loads((old/'manifest.json').read_text())

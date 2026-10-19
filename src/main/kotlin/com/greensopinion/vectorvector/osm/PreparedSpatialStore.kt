@@ -129,7 +129,7 @@ internal class PreparedSpatialStore(
         }
         return loaded
     }
-    fun ice(tile: TileId): IceSplitter? = partition(tile).ice.forTile(tile)?.let { GlacierIceSplitter(it) }
+    fun ice(tile: TileId): IceSplitter? = partition(tile).ice.forTile(tile)?.let { GlacierIceSplitter(it, tile = tile) }
     fun peaks(tile: TileId) = if (hasPeaks && tile.z >= 6) partition(tile).peaks.layer(tile) else null
 }
 

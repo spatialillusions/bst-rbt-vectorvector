@@ -141,6 +141,10 @@ Zero-elevation contours are excluded; negative inland contours are allowed.
 
 Contours are smoothed, split at OSM glacier outlines and clipped to an 80-unit buffer at extent
 4096. The RBT profile defaults to gzip-compressed vector tiles and disables hillshade. Its
+glacier splitter repairs a tile-local mask once if a geometry operation fails, then retries
+both ice and land segments. It logs the tile and repair; an unsuccessful retry stops the build
+instead of silently dropping contours. Valid geometry follows the original path.
+The profile's
 512-pixel elevation grids match Mapterhorn's native tile size. The legacy `--epsilon` option
 applies to the default profile; use `--rbtSmoothing` to adjust RBT smoothing.
 
@@ -243,6 +247,7 @@ starting. Global index memory, sustained recovery and larger-than-RAM merging ar
 - [Sharding and recovery results](docs/planet-validation.md)
 - [Hardware benchmarks](docs/performance.md) and [bulk merge measurements](docs/merge-performance.md)
 - [Memory implementation and validation](docs/memory-implementation-results.md)
+- [Glacier topology repair and Planetiler comparison](docs/glacier-topology-recovery.md)
 - [Output size versus RBT contours](docs/contour-output-size.md): matched global samples and lossless compression trials.
 - [RBT quality comparisons](docs/rbt-global-validation.md)
 - [10 m / zoom-14 investigation](docs/ten-meter-contours-investigation.md): a tested research prototype;
