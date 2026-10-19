@@ -186,3 +186,32 @@ It records `clean-validation-passed`; the clean report has `checks=passed`.
 
 Distributed generation remains future work. The current eight-core machine is
 the only benchmark/execution target.
+
+
+## Native planet handover, 19 October 2026
+
+After the controlled benchmark passed, the repaired producer was stopped just
+past a completed-shard checkpoint, with **3,857 / 4,096** shards complete.
+Its manifest, fingerprint and complete marker contents were snapshotted before
+creating `F:/vectorvector-planet-native-20261019`. The new deployment freezes
+candidate 03 with `-Dvectorvector.webpDecoder=native` and source commit
+`a33fa560e2587e3f0530c4ff98ee1d42efbb810a`.
+
+The guarded continuation driver is auditing every completed archive using SQLite
+integrity checking and SHA-256 before importing it. The exFAT volume requires
+copies rather than hard links. No new generation can start until the full import
+and frozen supervisor preflight succeed. The driver then launches the native
+supervisor automatically, retaining the existing heap, cache and physical-memory
+safeguards. The original deployment remains intact for rollback.
+
+Local handover evidence: `out/native-handover-20261019/`. The new deployment's
+`upgrade-status.json` records handover state; `import-monitor/run.log` records
+import progress; `status.json` and `monitor/generation-*/run.log` record generation
+once it starts. A started handover is not a completed planet: the supervisor must
+still generate the remaining shards, merge them and pass full-payload and pilot
+verification before reporting `planet-complete-and-verified`.
+
+Old fingerprint:
+`484f0eecea880352c5ed8d6f73c99922a8290f4a2ea3be7c4fc282fb3d0a359e`.
+Native fingerprint (published only after a successful import):
+`419ac1576549c480be2f7423a74e8f066611aa5148e607743d03381caca28a21`.
