@@ -44,7 +44,7 @@ would change the visual/encoding contract.
 operations. Only a `TopologyException` triggers repair:
 
 1. Apply JTS `GeometryFixer` to that tile's glacier mask and verify polygonal
-   validity. No buffering, simplification or coordinate rounding is introduced.
+   validity. No expansion/contraction buffers, simplification or coordinate rounding are introduced.
 2. Prepare/cache the repaired mask once in that splitter. Log the tile, original
    failure, vertex counts and areas. Both global and prepared input modes supply
    tile context.
@@ -67,7 +67,7 @@ valid masks without repair, and a valid geographic polygon whose near-edge hole
 becomes invalid under Mercator projection. These fixtures are constructed in
 code; no external RBT data or local glacier dataset is required.
 
-All **32 Python tests passed**, including negative checks that an import or
+All **33 Python tests passed**, including negative checks that an import or
 identity-preflight failure cannot launch the continuation supervisor.
 
 Real-data evidence is under `out/topology-recovery-20261019/` (outside Git).
@@ -82,6 +82,24 @@ requires the independent quality pilot, two mixed repeats, complete Iceland and
 Tibet shard equality, reproduction of the old failure, and successful generation
 of the complete previously failing Antarctic shard. Every successful tile in the
 old partial Antarctic archive must remain byte-identical in the corrected output.
+
+All gates passed. The independent pilot matched 800 stored tiles, both mixed
+repeats matched 638, complete Iceland matched 9,209 and complete Tibet matched
+21,134. Mixed wall-time medians were 9.98 s old / 9.94 s new, with peak RSS
+2,254 / 2,205 MiB. The dense Tibet candidate took 247.36 s; that is 4.9% longer
+than the earlier candidate's 235.89 s historical wall interval, not a fresh
+paired full-shard comparison.
+
+The complete Antarctic shard passed in 106.0 s at 1,386.8 MiB peak RSS:
+18,782 stored tiles, 201,801 contour features and 129 peak features. A separate
+standalone scan verified its MVT schema, intervals, ice flags and coordinate
+bounds. All **249 previously successful partial-shard tiles** remained raw-byte
+identical. Two masks required recovery: `10/972/845` and `11/1945/1690`.
+
+A class-by-class comparison of old/new JARs found changes only in `MainKt`,
+`PreparedSpatialStore` (tile context), `GlacierIceSplitter` and its two new helper
+classes. Elevation, smoothing, tracing, clipping, encoding and dependency classes
+are byte-identical between the frozen JARs.
 
 For this bug-fix transition, performance/peak-RSS gates allow at most 20% variation
 (processing logs have one-second resolution), rather than demanding the earlier
@@ -104,3 +122,15 @@ I/O cost. The incomplete Antarctic archive is not imported.
 checks the frozen supervisor identities and launches it only on success. It stops
 if any stage fails. The supervisor retains checkpoint recycling, resource guards,
 progress limits and automatic full merge/raw-payload/sample verification.
+
+The corrected frozen deployment is `F:/vectorvector-planet-repaired-20261019`,
+with producer source commit `c5dd36d`. The continuation driver started on
+19 October at approximately 08:40 local (initial driver PID 5304). At handoff
+it is auditing/importing the 3,388 completed archives; generation has not yet
+restarted. It proceeds automatically after successful import and identity checks.
+
+Follow `upgrade-status.json` and `import-monitor/run.log` during adoption, then
+`status.json` and `supervisor.stdout.log` once the supervisor starts. Per-worker
+logs are under `monitor/generation-NNNN/run.log` and rotate at planned restarts.
+The old deployment's status records a pointer to this recovery; its frozen JAR,
+inputs, fingerprint and completed archives remain unchanged.

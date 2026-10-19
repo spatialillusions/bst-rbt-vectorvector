@@ -41,5 +41,13 @@ class ContinuationTest(unittest.TestCase):
         self.assertEqual((self.root/'runner.pid').read_text(),'123')
         self.assertEqual(json.loads((self.root/'upgrade-status.json').read_text())['stage'],'planet-supervisor-finished')
 
+    def test_retry_preserves_previous_monitor_log(self):
+        (self.root/'import-monitor').mkdir()
+        child=Mock(pid=456);child.wait.return_value=0
+        with patch.object(sys,'argv',self.argv),patch.object(upgrade.subprocess,'run') as run,patch.object(upgrade.subprocess,'Popen',return_value=child):
+            upgrade.main()
+            command=run.call_args_list[0].args[0]
+            self.assertEqual(command[command.index('--out')+1],str(self.root/'import-monitor-0002'))
+
 
 if __name__=='__main__':unittest.main()

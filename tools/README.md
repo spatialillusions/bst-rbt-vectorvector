@@ -169,3 +169,13 @@ improvement. It never rewrites the old fingerprint or source payloads.
 
 These are deliberate migration tools, not an option to bypass normal resume
 identity checks. Review their paths and reports before using them on another run.
+
+For the known Antarctic topology failure, `validate_memory_upgrade.py
+--topology-recovery` compares two prepared producers and additionally requires
+the old failure, repaired tile/full shard and unchanged successful partial-shard
+payloads. This explicit validation kind retains the memory improvements and
+permits bounded performance variation; it does not demand another 25% RSS saving.
+`continue_validated_upgrade.py` guards the audited import, checks frozen identities
+and starts the new frozen supervisor only on success. An unsuccessful stage stops;
+retrying uses a new monitor folder and preserves the earlier logs. See the
+[recovery report](../docs/glacier-topology-recovery.md) for paths and measured results.

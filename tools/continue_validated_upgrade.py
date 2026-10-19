@@ -27,7 +27,11 @@ def main():
         '--old',str(a.old.resolve()),'--new',str(new),'--snapshot',str(a.snapshot.resolve()),
         '--validation',str(a.validation.resolve()),'--identity-helper',str(a.identity_helper.resolve()),'--java',a.java]
     try:
-        subprocess.run([sys.executable,str(tools/'monitor_job.py'),'--out',str(new/'import-monitor'),
+        monitor=new/'import-monitor'
+        attempt=1
+        while monitor.exists():
+            attempt+=1;monitor=new/f'import-monitor-{attempt:04d}'
+        subprocess.run([sys.executable,str(tools/'monitor_job.py'),'--out',str(monitor),
             '--low-memory-priority','--min-available-mib','3072','--min-disk-free-gib','20',
             '--disk-path',str(new),'--',*command],check=True)
         stage('checking-frozen-supervisor-identities')

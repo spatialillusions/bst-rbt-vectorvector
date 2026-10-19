@@ -1,5 +1,11 @@
 # Migration execution record
 
+**19 October recovery:** the [glacier topology repair report](glacier-topology-recovery.md)
+records the reproduced Antarctic failure, Planetiler comparison, validated fix
+and guarded continuation to `F:/vectorvector-planet-repaired-20261019`. Its
+`upgrade-status.json` tracks adoption; `status.json` tracks generation after
+the successful import. Earlier worker-specific log links are historical.
+
 17 October 2026. The complete phased plan is in [migration-plan.md](migration-plan.md);
 the feature/CLI review is in [migration-compatibility.md](migration-compatibility.md).
 
