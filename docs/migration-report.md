@@ -217,3 +217,32 @@ planet directory as its argument. It shares the existing runner lock. This
 supersedes the earlier operational resume command; original runtime and manifests
 remain preserved. See [full details](windows-memory-pressure.md) for recovery limits
 and the remaining need to observe real-session memory and throughput behavior.
+
+
+## Publication preparation on 19 October
+
+The throughput improvements are implemented and the controlled regional protocol
+passed. The repaired producer was checkpoint-paused at 3,857/4,096 complete shards;
+audited import into the separately frozen native deployment is underway. Current
+operational state is at `F:/vectorvector-planet-native-20261019/upgrade-status.json`
+and, once generation starts, `status.json`. Historical run paths above remain
+provenance, not current resume instructions. Use only this deployment's frozen
+`operations/planet_runner.py` to resume it after inspecting any recorded failure.
+
+A fresh Git source export passed JDK 21 verification: 169 tests passed, four
+optional-data skips, no failures/errors. The updated example driver then exercised
+the clean packaged JAR with both decoder modes; each output passed independent
+validation (three tiles, 76 contours), with all raw compressed tiles identical.
+All 44 Python tests passed. All 238 current application classes match the tested
+candidate; four obsolete unreferenced nested classes from incremental compilation
+are absent from the clean package. CI now uses clean builds, Linux and Windows,
+and explicit native/Java example equality plus operational regressions.
+
+The original checkout's 37 modified/untracked paths were backed up and hash-checked;
+its status, patches, HEAD, branch, remotes and file contents remain unchanged.
+See [migration-cutover.md](migration-cutover.md) for the concrete cutover sequence.
+The branch is already in the original repository's Git history through its linked
+worktree; publication does not require overwriting the original working directory.
+Full planet acceptance, remote CI and the complete shaded dependency-notice review
+remain open. Native WebP notices are now packaged; that does not close the broader
+binary notice review. No remote push, merge or release has been performed.

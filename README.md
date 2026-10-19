@@ -30,6 +30,8 @@ For local Windows builds, use `./build-jdk21.ps1 -MavenArgs verify`; it checks J
 running Maven. Set `JDK21_HOME` or pass `-JavaHome <jdk-directory>` when no local SDK is present.
 The [migration plan](docs/migration-plan.md) and [compatibility notes](docs/migration-compatibility.md)
 describe the move from the older planet implementation and its changed options.
+The [cutover checklist](docs/migration-cutover.md) records current validation and
+the remaining steps before publication and switching the original checkout.
 
 ## Repository-only example
 
@@ -44,6 +46,8 @@ python tools/generate_example.py
 It creates `out/example-contours/contours.mbtiles` with z9?10 contours near
 16.675? W, 64? N. Use a fresh `--out <directory>` for another run; existing output
 is preserved. Pass `--java <jdk21-java-executable>` to select a JDK explicitly.
+To exercise the optional native WebP decoder, use
+`python tools/generate_example.py --decoder native --out out/example-native`.
 The fixture is deliberately tiny and does not represent regional coverage.
 No OSM input is needed; glaciers and peaks are optional enrichments.
 
@@ -59,6 +63,9 @@ contour fields, intervals and buffered geometry. It checks structure, not terrai
 accuracy or seam quality. CI runs this same example and validator using only
 committed inputs. The Java tests also use committed/synthetic fixtures; optional
 regional integration tests skip when their local elevation/OSM inputs are absent.
+CI checks both Linux and Windows, including raw output equality between the Java
+and native decoders on the committed fixture. Regional speed measurements are
+recorded in the [throughput results](docs/planet-speed-results.md).
 See the [standalone style](styles/README.md) to display contours without RBT
 basemap files, sprites or fonts. Real regional/planet builds need elevation data
 as described below, but do not need an RBT reference archive.
