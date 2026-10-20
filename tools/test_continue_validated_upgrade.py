@@ -47,7 +47,9 @@ class ContinuationTest(unittest.TestCase):
         with patch.object(sys,'argv',self.argv),patch.object(upgrade.subprocess,'run') as run,patch.object(upgrade.subprocess,'Popen',return_value=child):
             upgrade.main()
             command=run.call_args_list[0].args[0]
-            self.assertEqual(command[command.index('--out')+1],str(self.root/'import-monitor-0002'))
+            # Windows CI may spell TEMP with an 8.3 alias; the driver canonicalizes it.
+            self.assertEqual(Path(command[command.index('--out')+1]).resolve(),
+                             (self.root/'import-monitor-0002').resolve())
 
 
 if __name__=='__main__':unittest.main()
