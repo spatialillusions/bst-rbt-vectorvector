@@ -1,10 +1,10 @@
 # Migration cutover checklist
 
-Updated 20 October 2026. The tested source already lives on
+Updated 20 October 2026. The development source lives on
 `migration/planet-contours-20261017`, a branch of the Git repository whose main
 checkout is `C:/Users/DarkStar/Documents/GitHub/vectorvector`. Its development
-worktree is `F:/vectorvector-migration-20261017`. Copying the source over the
-original checkout would discard work and is unnecessary for publication.
+worktree is `F:/vectorvector-migration-20261017`. The original checkout now uses the tested `planet-contours` branch. The F: worktree
+remains available for provenance and rollback; no folder overwrite was used.
 
 ## Implemented and tested
 
@@ -66,15 +66,40 @@ The completion gate passed on 19 October at 22:54:49 local; see the
 4. Push the reviewed feature branch when instructed, inspect both CI platforms,
    and resolve failures before merging or publishing a release.
 
-## Change the normal development checkout
+## Local checkout cutover, 20 October 2026
 
-The original checkout's uncommitted older implementation remains preserved.
-Reconcile it explicitly with the compatibility decisions before changing its
-branch. Keep a recoverable branch/backup of that work and verify the backup;
-never reset, clean or overwrite it as a shortcut. Until reconciliation, use the
-tested F: worktree for development and for a feature-branch push. Git publication
-does not require moving the physical working directory first.
+The original checkout is now on `planet-contours`, based on the validated migration
+history. Its older 37-path WIP was committed separately as `9ccca13` on
+`preservation/original-checkout-20261020`; it was not merged into the new pipeline.
+The compatibility decisions remain in [migration-compatibility.md](migration-compatibility.md).
+The local `main` reference remains unchanged at `63767d8`.
 
-After reconciliation and production validation, switch the original checkout to
-the reviewed branch, reopen it in the IDE, and rerun the repository-only example
-there. Retain the migration worktree and old deployment until cutover is verified.
+Before switching, 115 existing file paths were backed up and hash-verified,
+including local files that the new branch tracks. A complete Git bundle was
+created and verified. The older ignored `run-wholeworld-sharded.ps1` launcher
+was also backed up and moved out of the active checkout; use
+`run-planet-sharded.ps1` with its documented new arguments.
+
+Cutover evidence and rollback files remain outside Git under
+`F:/vectorvector-migration-20261017/out/migration-cutover-20261020/`:
+
+- `repository-before-cutover.bundle`: verified history/refs backup.
+- `original-checkout/`: original HEAD, branch, index, status, patches and hashed files.
+- `original-local-only/`: backup of the retired ignored launcher.
+- Build, Python and both packaged example validation logs and the final cutover report.
+
+The old implementation can be inspected on its preservation branch or restored
+into a separate worktree from the verified bundle. Do not overwrite a dirty
+working directory during rollback. Retain the F: migration worktree, frozen
+planet deployments and original backups until remote integration is complete.
+
+Validation in the destination checkout passed: JDK 21 `clean verify` reported
+169 passed tests and four optional-data skips; all 44 Python tests passed. Both
+packaged decoder examples passed reference-free validation (three tiles and 76
+contours each), with identical raw payloads. All 238 current application classes
+match the producer used in planet validation. No external RBT dataset was used
+for these destination smoke tests. The final record is `cutover-report.json` in
+the evidence directory.
+
+No push, `main` merge or binary release is part of this local cutover. Remote CI
+and the broader shaded dependency-notice review remain publication/release gates.

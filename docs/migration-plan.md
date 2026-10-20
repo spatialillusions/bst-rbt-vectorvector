@@ -1,6 +1,10 @@
 # Migration to the maintained vectorvector fork
 
-Status: in progress, 17 October 2026. This plan migrates the validated source in
+Status: local code cutover completed 20 October 2026; remote publication pending.
+See [the cutover record](migration-cutover.md) and
+[completed planet validation](planet-completion-20261019.md).
+
+Original plan, 17 October 2026. This plan migrates the validated source in
 `F:/bst-rbt-vectorvector` into the Git history currently at
 `C:/Users/DarkStar/Documents/GitHub/vectorvector`. It preserves the original project and the
 older planet implementation before preparing a replacement branch. A full planet build is

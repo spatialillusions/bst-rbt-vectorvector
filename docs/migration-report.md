@@ -251,3 +251,28 @@ worktree; publication does not require overwriting the original working director
 Full planet acceptance, remote CI and the complete shaded dependency-notice review
 remain open. Native WebP notices are now packaged; that does not close the broader
 binary notice review. No remote push, merge or release has been performed.
+
+
+## Local migration completed, 20 October 2026
+
+The normal development checkout at
+`C:/Users/DarkStar/Documents/GitHub/vectorvector` now uses `planet-contours`.
+Its older WIP is preserved separately on
+`preservation/original-checkout-20261020` (`9ccca13`), with a verified Git bundle
+and hash-checked file backups. `main` remains at `63767d8`. The incompatible
+older ignored launcher was backed up and retired from the active checkout.
+
+The destination's JDK 21 clean build passed: 169 tests passed, four optional-data
+skips, no failures/errors. All 44 Python tests passed. Both packaged decoder
+examples passed independent validation and matched all three raw stored tiles
+(76 contours each). Their 238 current application classes match the benchmarked
+planet producer. Source-only workflows require no external RBT data.
+
+The full planet gate passed: 4,096 shards, 23,455,012 raw tile payloads checked,
+SQLite integrity OK and all 1,060 independent pilot positions unchanged. The
+final 49.09 GiB archive remains in the frozen native deployment; it is not in Git.
+See [the planet report](planet-completion-20261019.md) for scope and memory limits.
+
+Local code migration and commits are complete. Remote CI, remote integration and
+a binary release remain separate actions; no push, `main` merge or release was
+performed. The shaded binary's broader dependency-notice audit is still open.
