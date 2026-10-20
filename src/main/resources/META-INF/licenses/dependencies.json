@@ -1,0 +1,374 @@
+{
+  "format": 1,
+  "dependencies": [
+    {
+      "coordinate": "org.jetbrains.kotlin:kotlin-stdlib:2.1.0",
+      "license": "Apache-2.0",
+      "files": [
+        {
+          "path": "META-INF/licenses/third-party/apache-2.0.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt"
+        },
+        {
+          "path": "META-INF/licenses/third-party/kotlin-COPYRIGHT.txt",
+          "sha256": "8f1a1700adb5490604c6094fb137bf73f6c28d3ee554b58f3ff8ef975a79672d",
+          "source": "https://raw.githubusercontent.com/JetBrains/kotlin/v2.1.0/license/COPYRIGHT.txt"
+        }
+      ]
+    },
+    {
+      "coordinate": "org.jetbrains:annotations:13.0",
+      "license": "Apache-2.0",
+      "files": [
+        {
+          "path": "META-INF/licenses/third-party/annotations-LICENSE.txt",
+          "sha256": "8c1e966c7855fb54027bcaf6ebe7a43abe4785791e8cf9148c363761d493d097",
+          "source": "https://raw.githubusercontent.com/JetBrains/java-annotations/master/LICENSE.txt"
+        }
+      ]
+    },
+    {
+      "coordinate": "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0",
+      "license": "Apache-2.0",
+      "files": [
+        {
+          "path": "META-INF/licenses/third-party/coroutines-LICENSE.txt",
+          "sha256": "b1febe6399dffb10d19d35e7663ab16300c93cb0476a94115df1cc0097a8ffd8",
+          "source": "https://raw.githubusercontent.com/Kotlin/kotlinx.coroutines/1.9.0/LICENSE.txt"
+        }
+      ]
+    },
+    {
+      "coordinate": "org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.9.0",
+      "license": "Apache-2.0",
+      "files": [
+        {
+          "path": "META-INF/licenses/third-party/coroutines-LICENSE.txt",
+          "sha256": "b1febe6399dffb10d19d35e7663ab16300c93cb0476a94115df1cc0097a8ffd8",
+          "source": "https://raw.githubusercontent.com/Kotlin/kotlinx.coroutines/1.9.0/LICENSE.txt"
+        }
+      ]
+    },
+    {
+      "coordinate": "info.picocli:picocli:4.7.6",
+      "license": "Apache-2.0",
+      "files": [
+        {
+          "path": "META-INF/licenses/third-party/picocli-LICENSE.txt",
+          "sha256": "b40930bbcf80744c86c46a12bc9da056641d722716c378f5659b9e555ef833e1",
+          "source": "https://raw.githubusercontent.com/remkop/picocli/v4.7.6/LICENSE"
+        }
+      ]
+    },
+    {
+      "coordinate": "io.github.oshai:kotlin-logging-jvm:7.0.0",
+      "license": "Apache-2.0",
+      "files": [
+        {
+          "path": "META-INF/dependency-licenses/kotlin-logging-jvm-7.0.0-jar/META-INF/LICENSE",
+          "sha256": "91ee885fa6bcd18b35dbb38859863eb927bf05eb6a6165baaf26c7f3bfb79e3a",
+          "source": "Runtime artifact: META-INF/LICENSE"
+        }
+      ]
+    },
+    {
+      "coordinate": "org.slf4j:slf4j-api:2.0.16",
+      "license": "MIT",
+      "files": [
+        {
+          "path": "META-INF/dependency-licenses/slf4j-api-2.0.16-jar/META-INF/LICENSE.txt",
+          "sha256": "4e7f90c86ab51278228bce153122f1d8df30149d13ce9ef524c8444a84c32dcc",
+          "source": "Runtime artifact: META-INF/LICENSE.txt"
+        }
+      ]
+    },
+    {
+      "coordinate": "org.apache.logging.log4j:log4j-slf4j2-impl:2.24.0",
+      "license": "Apache-2.0",
+      "files": [
+        {
+          "path": "META-INF/dependency-licenses/log4j-slf4j2-impl-2.24.0-jar/META-INF/LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "Runtime artifact: META-INF/LICENSE"
+        },
+        {
+          "path": "META-INF/dependency-licenses/log4j-slf4j2-impl-2.24.0-jar/META-INF/NOTICE",
+          "sha256": "67dfa17bcccc3c157fb8aa88e9a9d49e872c85671dde9db9261e93a7dc6d4771",
+          "source": "Runtime artifact: META-INF/NOTICE"
+        }
+      ]
+    },
+    {
+      "coordinate": "org.apache.logging.log4j:log4j-api:2.24.0",
+      "license": "Apache-2.0",
+      "files": [
+        {
+          "path": "META-INF/dependency-licenses/log4j-api-2.24.0-jar/META-INF/LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "Runtime artifact: META-INF/LICENSE"
+        },
+        {
+          "path": "META-INF/dependency-licenses/log4j-api-2.24.0-jar/META-INF/NOTICE",
+          "sha256": "6d95ce9a738c31425a584ee91eb6d9b6fbe18e351fb206b9f79104bcf7d7bf15",
+          "source": "Runtime artifact: META-INF/NOTICE"
+        }
+      ]
+    },
+    {
+      "coordinate": "org.apache.logging.log4j:log4j-core:2.24.0",
+      "license": "Apache-2.0",
+      "files": [
+        {
+          "path": "META-INF/dependency-licenses/log4j-core-2.24.0-jar/META-INF/LICENSE",
+          "sha256": "e118ad8e5f2d3c71f0e7d6202d5829e7580ccd9e3609a546c692788e657afbe2",
+          "source": "Runtime artifact: META-INF/LICENSE"
+        },
+        {
+          "path": "META-INF/dependency-licenses/log4j-core-2.24.0-jar/META-INF/NOTICE",
+          "sha256": "47481ebb980fb2d78204a80da2ccdb897c41aa34f43e0e5bcc06c1a32ea9ff48",
+          "source": "Runtime artifact: META-INF/NOTICE"
+        }
+      ]
+    },
+    {
+      "coordinate": "com.twelvemonkeys.imageio:imageio-tiff:3.15.3",
+      "license": "BSD-3-Clause",
+      "files": [
+        {
+          "path": "META-INF/licenses/third-party/twelvemonkeys-LICENSE.txt",
+          "sha256": "10e1e2688c74b337e0ca9e3a6a02e16319c3ee4cec79b768bca28ab8823ffde2",
+          "source": "https://raw.githubusercontent.com/haraldk/TwelveMonkeys/twelvemonkeys-3.15.3/LICENSE.txt"
+        }
+      ]
+    },
+    {
+      "coordinate": "com.twelvemonkeys.imageio:imageio-core:3.15.3",
+      "license": "BSD-3-Clause",
+      "files": [
+        {
+          "path": "META-INF/licenses/third-party/twelvemonkeys-LICENSE.txt",
+          "sha256": "10e1e2688c74b337e0ca9e3a6a02e16319c3ee4cec79b768bca28ab8823ffde2",
+          "source": "https://raw.githubusercontent.com/haraldk/TwelveMonkeys/twelvemonkeys-3.15.3/LICENSE.txt"
+        }
+      ]
+    },
+    {
+      "coordinate": "com.twelvemonkeys.imageio:imageio-metadata:3.15.3",
+      "license": "BSD-3-Clause",
+      "files": [
+        {
+          "path": "META-INF/licenses/third-party/twelvemonkeys-LICENSE.txt",
+          "sha256": "10e1e2688c74b337e0ca9e3a6a02e16319c3ee4cec79b768bca28ab8823ffde2",
+          "source": "https://raw.githubusercontent.com/haraldk/TwelveMonkeys/twelvemonkeys-3.15.3/LICENSE.txt"
+        }
+      ]
+    },
+    {
+      "coordinate": "com.twelvemonkeys.common:common-lang:3.15.3",
+      "license": "BSD-3-Clause",
+      "files": [
+        {
+          "path": "META-INF/licenses/third-party/twelvemonkeys-LICENSE.txt",
+          "sha256": "10e1e2688c74b337e0ca9e3a6a02e16319c3ee4cec79b768bca28ab8823ffde2",
+          "source": "https://raw.githubusercontent.com/haraldk/TwelveMonkeys/twelvemonkeys-3.15.3/LICENSE.txt"
+        }
+      ]
+    },
+    {
+      "coordinate": "com.twelvemonkeys.common:common-io:3.15.3",
+      "license": "BSD-3-Clause",
+      "files": [
+        {
+          "path": "META-INF/licenses/third-party/twelvemonkeys-LICENSE.txt",
+          "sha256": "10e1e2688c74b337e0ca9e3a6a02e16319c3ee4cec79b768bca28ab8823ffde2",
+          "source": "https://raw.githubusercontent.com/haraldk/TwelveMonkeys/twelvemonkeys-3.15.3/LICENSE.txt"
+        }
+      ]
+    },
+    {
+      "coordinate": "com.twelvemonkeys.common:common-image:3.15.3",
+      "license": "BSD-3-Clause",
+      "files": [
+        {
+          "path": "META-INF/licenses/third-party/twelvemonkeys-LICENSE.txt",
+          "sha256": "10e1e2688c74b337e0ca9e3a6a02e16319c3ee4cec79b768bca28ab8823ffde2",
+          "source": "https://raw.githubusercontent.com/haraldk/TwelveMonkeys/twelvemonkeys-3.15.3/LICENSE.txt"
+        }
+      ]
+    },
+    {
+      "coordinate": "com.twelvemonkeys.imageio:imageio-webp:3.15.3",
+      "license": "BSD-3-Clause",
+      "files": [
+        {
+          "path": "META-INF/licenses/third-party/twelvemonkeys-LICENSE.txt",
+          "sha256": "10e1e2688c74b337e0ca9e3a6a02e16319c3ee4cec79b768bca28ab8823ffde2",
+          "source": "https://raw.githubusercontent.com/haraldk/TwelveMonkeys/twelvemonkeys-3.15.3/LICENSE.txt"
+        }
+      ]
+    },
+    {
+      "coordinate": "dev.matrixlab.webp4j:webp4j-core:2.5.0",
+      "license": "MIT; native libwebp BSD-3-Clause; giflib MIT",
+      "files": [
+        {
+          "path": "META-INF/licenses/webp4j-LICENSE",
+          "sha256": "fdff8afbe7c549a45ab54ac0a850c88e5ce498bcdfd55af44083f2f1fd394549",
+          "source": "Bundled native dependency; see docs/dependency-notices.md"
+        },
+        {
+          "path": "META-INF/licenses/libwebp-COPYING",
+          "sha256": "5aec868f669e384a22372a4e8a1a6cd7d44c64cd451f960ca69cc170d1e13acf",
+          "source": "Bundled native dependency; see docs/dependency-notices.md"
+        },
+        {
+          "path": "META-INF/licenses/libwebp-PATENTS",
+          "sha256": "cc3273e0694ea5896145e0677699b53471b03ea43021ddc50e7923fbb9f5023c",
+          "source": "Bundled native dependency; see docs/dependency-notices.md"
+        },
+        {
+          "path": "META-INF/licenses/giflib-COPYING",
+          "sha256": "0c9b7990ecdca88b676db232c226548ac408b279f550d424d996f0d83591dd8e",
+          "source": "Bundled native dependency; see docs/dependency-notices.md"
+        },
+        {
+          "path": "META-INF/licenses/giflib-reallocarray-LICENSE",
+          "sha256": "0fe7f9409aad26b46f72890dd54b2d02a50f966489844b1355dea49765589846",
+          "source": "Bundled native dependency; see docs/dependency-notices.md"
+        }
+      ]
+    },
+    {
+      "coordinate": "com.google.protobuf:protobuf-kotlin:4.29.1",
+      "license": "BSD-3-Clause",
+      "files": [
+        {
+          "path": "META-INF/licenses/third-party/protobuf-LICENSE.txt",
+          "sha256": "6e5e117324afd944dcf67f36cf329843bc1a92229a8cd9bb573d7a83130fea7d",
+          "source": "https://raw.githubusercontent.com/protocolbuffers/protobuf/v29.1/LICENSE"
+        }
+      ]
+    },
+    {
+      "coordinate": "com.google.protobuf:protobuf-java:4.29.1",
+      "license": "BSD-3-Clause",
+      "files": [
+        {
+          "path": "META-INF/licenses/third-party/protobuf-LICENSE.txt",
+          "sha256": "6e5e117324afd944dcf67f36cf329843bc1a92229a8cd9bb573d7a83130fea7d",
+          "source": "https://raw.githubusercontent.com/protocolbuffers/protobuf/v29.1/LICENSE"
+        }
+      ]
+    },
+    {
+      "coordinate": "com.google.guava:guava:33.4.0-jre",
+      "license": "Apache-2.0",
+      "files": [
+        {
+          "path": "META-INF/dependency-licenses/guava-33.4.0-jre-jar/META-INF/LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "Runtime artifact: META-INF/LICENSE"
+        }
+      ]
+    },
+    {
+      "coordinate": "com.google.guava:failureaccess:1.0.2",
+      "license": "Apache-2.0",
+      "files": [
+        {
+          "path": "META-INF/licenses/third-party/guava-LICENSE.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://raw.githubusercontent.com/google/guava/v33.4.0/LICENSE"
+        }
+      ]
+    },
+    {
+      "coordinate": "com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava",
+      "license": "Apache-2.0",
+      "files": [
+        {
+          "path": "META-INF/licenses/third-party/guava-LICENSE.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://raw.githubusercontent.com/google/guava/v33.4.0/LICENSE"
+        }
+      ]
+    },
+    {
+      "coordinate": "com.google.code.findbugs:jsr305:3.0.2",
+      "license": "Apache-2.0",
+      "files": [
+        {
+          "path": "META-INF/licenses/third-party/apache-2.0.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ]
+    },
+    {
+      "coordinate": "org.checkerframework:checker-qual:3.43.0",
+      "license": "MIT",
+      "files": [
+        {
+          "path": "META-INF/dependency-licenses/checker-qual-3.43.0-jar/META-INF/LICENSE.txt",
+          "sha256": "e90eaa08dea089df10f2bf7f9dba63a5f6237c01562c4741e2e86773e78582d5",
+          "source": "Runtime artifact: META-INF/LICENSE.txt"
+        }
+      ]
+    },
+    {
+      "coordinate": "com.google.errorprone:error_prone_annotations:2.36.0",
+      "license": "Apache-2.0",
+      "files": [
+        {
+          "path": "META-INF/licenses/third-party/errorprone-LICENSE.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "source": "https://raw.githubusercontent.com/google/error-prone/v2.36.0/COPYING"
+        }
+      ]
+    },
+    {
+      "coordinate": "com.google.j2objc:j2objc-annotations:3.0.0",
+      "license": "Apache-2.0",
+      "files": [
+        {
+          "path": "META-INF/licenses/third-party/j2objc-LICENSE.txt",
+          "sha256": "22418fba3d2030cc22690f1c0c38ae423d5540110e9d61519027e3210ac29726",
+          "source": "https://raw.githubusercontent.com/google/j2objc/3.0.0/LICENSE"
+        }
+      ]
+    },
+    {
+      "coordinate": "org.locationtech.jts:jts-core:1.20.0",
+      "license": "EPL-2.0 OR BSD-3-Clause (EDL-1.0)",
+      "files": [
+        {
+          "path": "META-INF/licenses/third-party/jts-LICENSE-EDL.txt",
+          "sha256": "e67a91b5489cd78292d2654f1b587fe68296e28df7c766b9b675614fbdce4fd1",
+          "source": "https://raw.githubusercontent.com/locationtech/jts/1.20.0/LICENSE_EDLv1.txt"
+        },
+        {
+          "path": "META-INF/licenses/third-party/jts-LICENSE-EPL.txt",
+          "sha256": "0becf16567beb77fa252b7664631dd177c8f9a1889e48995b45379c7130e5303",
+          "source": "https://raw.githubusercontent.com/locationtech/jts/1.20.0/LICENSE_EPLv2.txt"
+        }
+      ]
+    },
+    {
+      "coordinate": "org.xerial:sqlite-jdbc:3.47.1.0",
+      "license": "Apache-2.0; bundled SQLite public-domain; Zentus BSD",
+      "files": [
+        {
+          "path": "META-INF/dependency-licenses/sqlite-jdbc-3.47.1.0-jar/META-INF/maven/org.xerial/sqlite-jdbc/LICENSE",
+          "sha256": "3ddf9be5c28fe27dad143a5dc76eea25222ad1dd68934a047064e56ed2fa40c5",
+          "source": "Runtime artifact: META-INF/maven/org.xerial/sqlite-jdbc/LICENSE"
+        },
+        {
+          "path": "META-INF/dependency-licenses/sqlite-jdbc-3.47.1.0-jar/META-INF/maven/org.xerial/sqlite-jdbc/LICENSE.zentus",
+          "sha256": "89167dab92289c7e5e2b65b044f0856b703d05e5d5e35c3548e73d9c7d2f5048",
+          "source": "Runtime artifact: META-INF/maven/org.xerial/sqlite-jdbc/LICENSE.zentus"
+        }
+      ]
+    }
+  ]
+}

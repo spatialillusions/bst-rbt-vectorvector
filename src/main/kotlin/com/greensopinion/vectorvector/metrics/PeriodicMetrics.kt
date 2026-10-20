@@ -36,6 +36,12 @@ class PeriodicMetrics(
             "${it.key}=${value},${perSecond}/s"
         }
         log.info { report }
+        val runtime = Runtime.getRuntime()
+        val mib = 1024 * 1024
+        log.info {
+            "Heap MiB: used=${(runtime.totalMemory() - runtime.freeMemory()) / mib}, " +
+                "committed=${runtime.totalMemory() / mib}, max=${runtime.maxMemory() / mib}"
+        }
     }
 
     override fun close() {

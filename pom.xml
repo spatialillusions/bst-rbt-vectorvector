@@ -26,7 +26,47 @@
     <build>
         <sourceDirectory>src/main/kotlin</sourceDirectory>
         <testSourceDirectory>src/test/kotlin</testSourceDirectory>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+            </resource>
+            <resource>
+                <directory>${project.basedir}</directory>
+                <targetPath>META-INF/licenses/vectorvector</targetPath>
+                <includes>
+                    <include>LICENSE</include>
+                    <include>THIRD-PARTY-NOTICES.md</include>
+                </includes>
+            </resource>
+        </resources>
         <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <version>3.7.0</version>
+                <executions>
+                    <execution>
+                        <id>preserve-runtime-notices</id>
+                        <phase>prepare-package</phase>
+                        <goals><goal>unpack-dependencies</goal></goals>
+                        <configuration>
+                            <includeScope>runtime</includeScope>
+                            <includes>**/LICENSE*,**/LICENCE*,**/NOTICE*,**/COPYING*,**/PATENTS*,**/license*,**/notice*,**/copying*,**/patents*</includes>
+                            <useSubDirectoryPerArtifact>true</useSubDirectoryPerArtifact>
+                            <outputDirectory>${project.build.outputDirectory}/META-INF/dependency-licenses</outputDirectory>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>record-runtime-dependencies</id>
+                        <phase>prepare-package</phase>
+                        <goals><goal>list</goal></goals>
+                        <configuration>
+                            <includeScope>runtime</includeScope>
+                            <outputFile>${project.build.directory}/runtime-dependencies.txt</outputFile>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <groupId>org.jetbrains.kotlin</groupId>
                 <artifactId>kotlin-maven-plugin</artifactId>
@@ -61,7 +101,7 @@
                 <artifactId>exec-maven-plugin</artifactId>
                 <version>1.6.0</version>
                 <configuration>
-                    <mainClass>MainKt</mainClass>
+                    <mainClass>com.greensopinion.vectorvector.MainKt</mainClass>
                 </configuration>
             </plugin>
             <plugin>
@@ -83,6 +123,7 @@
                             <goal>shade</goal>
                         </goals>
                         <configuration>
+                            <createDependencyReducedPom>false</createDependencyReducedPom>
                             <outputFile>${project.build.directory}/${project.artifactId}-cli.jar
                             </outputFile>
                             <transformers>
@@ -90,6 +131,8 @@
                                         implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                                     <mainClass>com.greensopinion.vectorvector.MainKt</mainClass>
                                 </transformer>
+                                <transformer
+                                        implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
                             </transformers>
                             <filters>
                                 <filter>
@@ -180,7 +223,17 @@
         <dependency>
             <groupId>com.twelvemonkeys.imageio</groupId>
             <artifactId>imageio-tiff</artifactId>
-            <version>3.12.0</version>
+            <version>3.15.3</version>
+        </dependency>
+        <dependency>
+            <groupId>com.twelvemonkeys.imageio</groupId>
+            <artifactId>imageio-webp</artifactId>
+            <version>3.15.3</version>
+        </dependency>
+        <dependency>
+            <groupId>dev.matrixlab.webp4j</groupId>
+            <artifactId>webp4j-core</artifactId>
+            <version>2.5.0</version>
         </dependency>
         <dependency>
             <groupId>com.google.protobuf</groupId>
@@ -191,6 +244,11 @@
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
             <version>33.4.0-jre</version>
+        </dependency>
+        <dependency>
+            <groupId>org.locationtech.jts</groupId>
+            <artifactId>jts-core</artifactId>
+            <version>1.20.0</version>
         </dependency>
         <dependency>
             <groupId>org.xerial</groupId>

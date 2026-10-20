@@ -5,7 +5,10 @@ import com.greensopinion.vectorvector.metrics.SingletonMetricsProvider
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.Assertions.assertThrows
+import org.sqlite.JDBC
 import java.io.File
+import java.util.Properties
 import kotlin.random.Random
 
 class MbtilesTileRepositoryTest {
@@ -45,6 +48,40 @@ class MbtilesTileRepositoryTest {
                 json = "{ \"a\": \"json\" }",
                 format = "pbf"
             ))
+        }
+    }
+
+    @Test
+    fun `commits full batches and the final partial batch on close`() {
+        MbtilesTileRepository(file, metricsProvider).use { repository ->
+            repeat(1005) { x -> repository.store(TileId(11, x, 0), "pbf", byteArrayOf(1, 2, 3)) }
+        }
+        JDBC.createConnection("jdbc:sqlite:${file.absolutePath}", Properties()).use { c ->
+            c.createStatement().use { s ->
+                s.executeQuery("SELECT count(*) FROM tiles").use { r ->
+                    r.next()
+                    assertThat(r.getInt(1)).isEqualTo(1005)
+                }
+                s.executeQuery("PRAGMA integrity_check").use { r ->
+                    r.next()
+                    assertThat(r.getString(1)).isEqualTo("ok")
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `asynchronous write errors fail close and the archive can be rebuilt`() {
+        assertThrows(Exception::class.java) {
+            MbtilesTileRepository(file, metricsProvider).use { repository ->
+                repeat(2) { repository.store(TileId(2, 1, 1), "pbf", byteArrayOf(1)) }
+            }
+        }
+        MbtilesTileRepository(file, metricsProvider).use {
+            it.store(TileId(2, 1, 1), "pbf", byteArrayOf(2))
+        }
+        MbtilesTileRepository(file, metricsProvider, truncate = false).use {
+            assertThat(it.read(TileId(2, 1, 1)).get()).isEqualTo(byteArrayOf(2))
         }
     }
 }

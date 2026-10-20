@@ -1,0 +1,21 @@
+{
+  "options": {
+    "paths": {
+      "root": "",
+      "mbtiles": "..",
+      "styles": "."
+    }
+  },
+  "data": {
+    "CONTOURS": {
+      "mbtiles": "out/example-contours/contours.mbtiles"
+    }
+  },
+  "styles": {
+    "contours": {
+      "style": "contours/style.json",
+      "serve_data": true,
+      "serve_rendered": true
+    }
+  }
+}

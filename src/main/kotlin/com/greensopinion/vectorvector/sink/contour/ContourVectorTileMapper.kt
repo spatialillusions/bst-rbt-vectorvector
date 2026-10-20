@@ -36,7 +36,7 @@ class ContourVectorTileMapper(
                 for (line in contours[elevation]!!) {
                     addFeatures(VectorTile.Tile.Feature.newBuilder().apply {
                         type = VectorTile.Tile.GeomType.LINESTRING
-                        line.zigZag(this)
+                        line.encodeLineString(this)
                         addTags(elevationKeyIndex)
                         addTags(elevationIndex)
                         addTags(levelKeyIndex)
@@ -48,13 +48,13 @@ class ContourVectorTileMapper(
     }
 }
 
-private fun command(cmd: Int, length: Int): Int {
+internal fun command(cmd: Int, length: Int): Int {
     return (length shl 3) + (cmd and 0x7)
 }
-private fun zigzag(num: Int): Int {
+internal fun zigzag(num: Int): Int {
     return (num shl 1) xor (num shr 31)
 }
-private fun Line.zigZag(geometry:  VectorTile. Tile. Feature. Builder) {
+internal fun Line.encodeLineString(geometry: VectorTile.Tile.Feature.Builder) {
     var x = 0;
     var y = 0;
     geometry.addGeometry(command(1,1))
@@ -72,7 +72,7 @@ private fun Line.zigZag(geometry:  VectorTile. Tile. Feature. Builder) {
     }
 }
 
-private fun Int.toTileValue(): VectorTile.Tile.Value {
+internal fun Int.toTileValue(): VectorTile.Tile.Value {
     val l = this.toLong()
     return VectorTile.Tile.Value.newBuilder().apply {
         if (l >= 0) {

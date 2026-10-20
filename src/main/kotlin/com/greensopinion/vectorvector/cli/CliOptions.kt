@@ -1,17 +1,150 @@
 package com.greensopinion.vectorvector.cli
 
+import com.greensopinion.vectorvector.LonLatBounds
+import com.greensopinion.vectorvector.TileId
+import com.greensopinion.vectorvector.TileRange
+import com.greensopinion.vectorvector.profile.RbtZoomSettings
+import picocli.CommandLine
 import picocli.CommandLine.Command
 import picocli.CommandLine.Option
 import java.io.File
 
 @Command(name = "java --jar vectorvector-cli.jar")
 class CliOptions {
+    @Option(names = ["--parallelism"], description = ["Maximum concurrent tile workers. Defaults to 2."])
+    var parallelism: Int = 2
+
+    @Option(names = ["--shardsX"], description = ["Horizontal partitions at minZ, clamped to the range width."])
+    var shardsX: Int = 1
+
+    @Option(names = ["--shardsY"], description = ["Vertical partitions at minZ, clamped to the range height."])
+    var shardsY: Int = 1
+
+    @Option(names = ["--resumableShards"], arity = "0..1", fallbackValue = "true",
+        description = ["Keep completed MBTiles shards and resume interrupted builds, then merge atomically."])
+    var resumableShards: Boolean = false
+
+    @Option(names = ["--shardWorkDir"], description = ["Shard artifacts directory; defaults to <output>/.shards."])
+    var shardWorkDir: File? = null
+
+    @Option(names = ["--elevationCacheTiles"], description = ["Maximum entries in each Mapterhorn elevation cache. Defaults to 128."])
+    var elevationCacheTiles: Long = 128
+
+    @Option(names = ["--elevationCacheMiB"], description = ["Combined conservative Mapterhorn cache budget in MiB; 0 keeps count-only limits. Defaults to 384."])
+    var elevationCacheMiB: Long = 384
+
+    @Option(names = ["--glacierCacheMiB"], description = ["Conservative clipped-glacier cache budget in MiB; 0 keeps count-only limits. Defaults to 128."])
+    var glacierCacheMiB: Long = 128
+
+    @Option(names = ["--tileBlockSize"], description = ["Spatial tile block side, 0..256. Defaults to 8 for Mapterhorn, 0 for GeoTIFF; 0 keeps legacy strips."])
+    var tileBlockSize: Int? = null
+    val resolvedTileBlockSize get() = tileBlockSize ?: if (dataFormat == DataSourceFormat.mapterhorn) 8 else 0
+
+    @Option(names = ["--reopenArchivesAfterShard"], arity = "0..1", fallbackValue = "true", description = ["Reopen local archive handles at quiescent shard boundaries; retain decoded caches."])
+    var reopenArchivesAfterShard: Boolean = false
+
+    @Option(names = ["--spatialData"], description = ["Completed prepared z6 glacier/peak store; avoids global runtime OSM indexes."])
+    var spatialData: File? = null
+
+    @Option(names = ["--glacierCacheTiles"], description = ["Maximum cached clipped glacier geometries. Defaults to 256."])
+    var glacierCacheTiles: Long = 256
+
     @Option(
         names = ["-d", "--data"],
-        required = true,
-        description = ["The data directory containing elevation data in GeoTIFF format"]
+        description = ["The data directory containing elevation data in GeoTIFF format. Required for srtm and aw3d30."]
     )
     var dataDir: File? = null
+
+    @Option(
+        names = ["--pmtiles"],
+        description = ["A Mapterhorn PMTiles archive, as a local path or http(s) URL. Repeatable, e.g. planet.pmtiles plus 6-x-y.pmtiles files. Required for --dataFormat mapterhorn."]
+    )
+    var pmtiles: MutableList<String> = mutableListOf()
+
+    @Option(
+        names = ["--pmtilesCacheDir"],
+        description = ["Optional directory for caching remote PMTiles tile bytes on disk."]
+    )
+    var pmtilesCacheDir: File? = null
+
+    @Option(
+        names = ["--elevationExtent"],
+        description = ["The elevation grid size per tile, 256 or 512. Defaults to 512 for mapterhorn and 256 otherwise."]
+    )
+    var elevationExtent: Int? = null
+
+    @Option(
+        names = ["--glaciers"],
+        description = ["An OSM PBF file. Contour lines are split at natural=glacier outlines and tagged is_ice (rbt profile)."]
+    )
+    var glaciers: File? = null
+
+    @Option(
+        names = ["--glacierWkb"],
+        description = ["Additional OSM-derived ice polygons in WGS84 Polygon/MultiPolygon WKB, e.g. the Antarctic ice sheet. Requires the rbt profile."]
+    )
+    var glacierWkb: File? = null
+
+    @Option(
+        names = ["--peaks"],
+        arity = "0..1",
+        fallbackValue = "",
+        description = ["An OSM PBF file with natural=peak/volcano nodes, written as a 'peaks' layer. Without a value, the --glaciers file is used."]
+    )
+    var peaks: String? = null
+
+    @Option(
+        names = ["--peaksMinZoom"],
+        description = ["The minimum zoom level of the peaks layer. Defaults to \${DEFAULT-VALUE}"]
+    )
+    var peaksMinZoom: Int = 9
+
+    @Option(
+        names = ["--profile"],
+        description = ["The contour profile, one of \${COMPLETION-CANDIDATES}. Defaults to \${DEFAULT-VALUE}"]
+    )
+    var profile: ProfileName = ProfileName.default
+
+    @Option(
+        names = ["--vectorName"],
+        description = ["The name of the vector tile output. Defaults to 'vector', or 'contours' for the rbt profile."]
+    )
+    var vectorName: String? = null
+
+    @Option(
+        names = ["--bbox"],
+        description = ["Only generate tiles that intersect minLon,minLat,maxLon,maxLat. Without --area, the tile range is derived from it."]
+    )
+    var bbox: String? = null
+
+    @Option(
+        names = ["--rbtSmoothing"],
+        description = ["Overrides RBT smoothing per zoom: 'z=sigmaPx/chaikinIterations/epsilon', comma separated, e.g. 12=1.5/2/3,13=1.5/3/3. A z of '*' applies to all zooms 9-13."]
+    )
+    var rbtSmoothing: String? = null
+
+    @Option(
+        names = ["--gzipTiles"],
+        arity = "0..1",
+        fallbackValue = "true",
+        description = ["Gzip vector tiles (expected by QGIS and most MBTiles readers). Defaults to true for the rbt profile, false otherwise."]
+    )
+    var gzipTiles: Boolean? = null
+
+    val resolvedGzipTiles: Boolean
+        get() = gzipTiles ?: (profile == ProfileName.rbt)
+
+    @Option(
+        names = ["--tileList"],
+        description = ["Only generate the tiles listed in this file, one z/x/y per line (within the area/zoom range)."]
+    )
+    var tileList: File? = null
+
+    val resolvedTileList: Set<TileId>?
+        get() = tileList?.readLines()?.map { it.trim() }?.filter { it.isNotEmpty() && !it.startsWith("#") }?.map { line ->
+            val (z, x, y) = line.split("/").map { it.toInt() }
+            TileId(z, x, y)
+        }?.toSet()
 
     @Option(
         names = ["--dataFormat"],
@@ -40,9 +173,11 @@ class CliOptions {
 
     @Option(
         names = ["--hillshadeRaster"],
-        description = ["Generates hillshade raster tiles, which simulate the shading effects of the sun on the terrain to enhance visual representation of elevation data. Defaults to \${DEFAULT-VALUE}"]
+        arity = "0..1",
+        fallbackValue = "true",
+        description = ["Generates hillshade raster tiles, which simulate the shading effects of the sun on the terrain to enhance visual representation of elevation data. Defaults to true, except for the rbt profile or an elevation extent of 512."]
     )
-    var hillshadeRaster: Boolean = true
+    var hillshadeRaster: Boolean? = null
 
     @Option(
         names = ["-f", "--outputFormat"],
@@ -101,10 +236,90 @@ class CliOptions {
         description = ["Specifies the epsilon value to apply to contour lines for reducing the number of points using the Ramer–Douglas–Peucker algorithm. A higher value simplifies the lines more by removing points, while a lower value retains more detail. The default value is \${DEFAULT-VALUE}. Set to 0 to disable line simplification."]
     )
     var contourEpsilon: Int = 3
+
+    val resolvedElevationExtent: Int
+        get() = elevationExtent ?: if (dataFormat == DataSourceFormat.mapterhorn) 512 else 256
+
+    val resolvedHillshadeRaster: Boolean
+        get() = hillshadeRaster ?: (profile != ProfileName.rbt && resolvedElevationExtent == 256)
+
+    val resolvedVectorName: String
+        get() = vectorName ?: if (profile == ProfileName.rbt) "contours" else "vector"
+
+    val resolvedPeaks: File?
+        get() = peaks?.let { if (it.isEmpty()) glaciers else File(it) }
+
+    val resolvedBbox: LonLatBounds?
+        get() = bbox?.let { LonLatBounds.parse(it) }
+
+    /** Checks combinations that picocli can't express. Throws [IllegalArgumentException] with a user-facing message. */
+    fun validate() {
+        require(parallelism in 1..1024) { "--parallelism must be between 1 and 1024" }
+        require(shardsX > 0 && shardsY > 0) { "--shardsX and --shardsY must be positive" }
+        require(glacierCacheTiles > 0) { "--glacierCacheTiles must be positive" }
+        require(elevationCacheTiles > 0) { "--elevationCacheTiles must be positive" }
+        require(shardWorkDir == null || resumableShards) { "--shardWorkDir requires --resumableShards" }
+        require(!resumableShards || outputFormat == CliOutputFormat.mbtiles) { "--resumableShards requires --outputFormat mbtiles" }
+        require(!resumableShards || pmtiles.none { it.startsWith("http://") || it.startsWith("https://") }) {
+            "--resumableShards requires local PMTiles inputs so input changes can be detected"
+        }
+        val outputNames = buildList {
+            if (terrarium) add("terrarium")
+            if (resolvedHillshadeRaster) add("hillshade")
+            if (vector) add(resolvedVectorName)
+        }
+        require(outputNames.isNotEmpty()) { "No outputs specified, nothing to do!" }
+        require(outputNames.distinct().size == outputNames.size) { "Enabled outputs must have distinct names" }
+        require(outputNames.all { it.isNotBlank() && File(it).name == it && it != "." && it != ".." }) {
+            "--vectorName must be a filename without directory components"
+        }
+
+        when (dataFormat) {
+            DataSourceFormat.srtm, DataSourceFormat.aw3d30 -> {
+                require(dataDir != null) { "--data is required for --dataFormat $dataFormat" }
+                require(resolvedElevationExtent == 256) { "--elevationExtent must be 256 for --dataFormat $dataFormat" }
+            }
+            DataSourceFormat.mapterhorn -> {
+                require(pmtiles.isNotEmpty()) { "--pmtiles is required for --dataFormat mapterhorn" }
+            }
+        }
+        require(resolvedElevationExtent == 256 || resolvedElevationExtent == 512) { "--elevationExtent must be 256 or 512" }
+        if (resolvedElevationExtent != 256) {
+            require(!terrarium) { "--terrarium requires --elevationExtent 256" }
+            require(!resolvedHillshadeRaster) { "--hillshadeRaster requires --elevationExtent 256" }
+        }
+        require(elevationCacheMiB in 0..65536 && glacierCacheMiB in 0..65536) { "Cache MiB budgets must be in 0..65536" }
+        require(resolvedTileBlockSize in 0..256) { "--tileBlockSize must be in 0..256" }
+        require(spatialData == null || (profile == ProfileName.rbt && minZ >= 6)) { "--spatialData requires the rbt profile and minZ >= 6" }
+        require(spatialData == null || File(spatialData, "manifest.properties").isFile) { "Missing prepared spatial manifest: $spatialData" }
+        require(peaks == null || resolvedPeaks != null) { "--peaks without a file requires --glaciers" }
+        require(glaciers == null || profile == ProfileName.rbt) { "--glaciers requires --profile rbt" }
+        require(glacierWkb == null || profile == ProfileName.rbt) { "--glacierWkb requires --profile rbt" }
+        require(glacierWkb == null || glacierWkb!!.isFile) { "Missing glacier WKB: $glacierWkb" }
+        require(rbtSmoothing == null || profile == ProfileName.rbt) { "--rbtSmoothing requires --profile rbt" }
+        rbtSmoothing?.let {
+            try {
+                parseRbtSmoothing(it)
+            } catch (e: Exception) {
+                throw IllegalArgumentException("--rbtSmoothing: ${e.message}", e)
+            }
+        }
+        bbox?.let {
+            try {
+                resolvedBbox
+            } catch (e: Exception) {
+                throw IllegalArgumentException("--bbox: ${e.message}", e)
+            }
+        }
+    }
 }
 
 enum class DataSourceFormat {
-    srtm, aw3d30
+    srtm, aw3d30, mapterhorn
+}
+
+enum class ProfileName {
+    default, rbt
 }
 
 enum class CliOutputFormat {
@@ -130,6 +345,7 @@ enum class NamedArea(val bounds: AreaBounds) {
     rome(AreaBounds(z = 6, x = 34, y = 23, maxZ = 12)),
     tokyo(AreaBounds(z = 6, x = 56, y = 25, maxZ = 12)),
     mallorca(AreaBounds(z = 6, x = 32, y = 24, maxZ = 12)),
+    iceland(AreaBounds(minZ = 6, maxZ = 13, minX = 27, maxX = 29, minY = 15, maxY = 17)),
     debug(AreaBounds(minZ = 9, maxZ = 9, minX = 494, maxX = 494, minY = 328, maxY = 328))
 }
 
@@ -151,4 +367,50 @@ class AreaBounds(
         options.minY = minY
         options.maxY = maxY
     }
+}
+
+/** Parses and validates the command line. Named areas override the Z/X/Y options. */
+fun parseCliOptions(args: Array<String>): CliOptions {
+    val options = CliOptions()
+    CommandLine(options).parseArgs(*args)
+    options.area?.bounds?.applyTo(options)
+    if (!options.help) {
+        options.validate()
+    }
+    return options
+}
+
+fun CliOptions.toTileRange(): TileRange {
+    val bounds = resolvedBbox
+    val only = resolvedTileList
+    if (bounds != null && area == null) {
+        val covering = TileRange.covering(bounds, minZ, maxZ)
+        return TileRange(covering.minZ, covering.maxZ, covering.minX, covering.maxX,
+            covering.minY, covering.maxY, bounds, only, resolvedTileBlockSize)
+    }
+    return TileRange(
+        minZ = minZ,
+        maxZ = maxZ,
+        minX = minX,
+        maxX = maxX,
+        minY = minY,
+        maxY = maxY,
+        bounds = bounds,
+        only = only,
+        blockSize = resolvedTileBlockSize
+    )
+}
+
+fun parseRbtSmoothing(spec: String?): Map<Int, RbtZoomSettings> {
+    if (spec.isNullOrBlank()) {
+        return mapOf()
+    }
+    return spec.split(",").flatMap { entry ->
+        val (zoom, values) = entry.trim().split("=").also { require(it.size == 2) { "expected z=sigma/chaikin/epsilon but was '$entry'" } }
+        val parts = values.split("/")
+        require(parts.size == 3) { "expected sigma/chaikin/epsilon but was '$values'" }
+        val settings = RbtZoomSettings(parts[0].toDouble(), parts[1].toInt(), parts[2].toDouble())
+        val zooms = if (zoom.trim() == "*") (9..13).toList() else listOf(zoom.trim().toInt())
+        zooms.map { it to settings }
+    }.toMap()
 }

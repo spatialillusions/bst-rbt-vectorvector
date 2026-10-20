@@ -7,9 +7,17 @@ class TileRange(
     val maxX: Int,
     val minY: Int,
     val maxY: Int,
+    /** Optional geographic clip: tiles that don't intersect it are skipped. */
+    val bounds: LonLatBounds? = null,
+    /** Optional explicit tile set: only these tiles are produced. */
+    val only: Set<TileId>? = null,
+    /** Spatial block side at each zoom; zero preserves legacy strip traversal. */
+    val blockSize: Int = 0,
 ) {
     init {
         require(maxZ >= minZ) { "maxZ=$maxZ must be greater or equal to minZ=$minZ" }
+        require(minX <= maxX && minY <= maxY) { "Tile bounds must be ordered" }
+        require(blockSize in 0..256) { "Tile block size must be in 0..256" }
         val c = TileCoordinates(minZ)
         c.checkZ(minZ)
         c.checkZ(maxZ)
@@ -19,38 +27,86 @@ class TileRange(
         c.checkY(maxY)
     }
 
-    val size: Int get() {
-        var count = 0
-        val baseRangeX = maxX-minX+1
-        val baseRangeY = maxY-minY+1
-
-        for (z in minZ..maxZ) {
-            val factor = 1 shl (z - minZ)
-            val rangeX = baseRangeX * factor
-            val rangeY = baseRangeY* factor
-            count += (rangeX*rangeY)
+    /** Count without enumerating tiles; a planet through z16 exceeds Int.MAX_VALUE. */
+    val size: Long get() {
+        only?.let { return it.count { contains(it) }.toLong() }
+        return (minZ..maxZ).sumOf { z ->
+            val (xs, ys) = ranges(z)
+            (xs.last.toLong() - xs.first + 1).coerceAtLeast(0) *
+                (ys.last.toLong() - ys.first + 1).coerceAtLeast(0)
         }
-        return count
+    }
+
+    private fun contains(tile: TileId): Boolean = tile.z in minZ..maxZ &&
+        (tile.x shr (tile.z - minZ)) in minX..maxX &&
+        (tile.y shr (tile.z - minZ)) in minY..maxY &&
+        (bounds == null || tile.lonLatBounds().intersects(bounds))
+
+    private fun ranges(z: Int): Pair<IntRange, IntRange> {
+        val factor = 1 shl (z - minZ)
+        val xs = minX * factor until (maxX + 1) * factor
+        val ys = minY * factor until (maxY + 1) * factor
+        val b = bounds ?: return xs to ys
+        // Binary searches use the exact same strict boundaries as lonLatBounds().intersects().
+        fun first(range: IntRange, predicate: (Int) -> Boolean): Int {
+            var low = range.first
+            var high = range.last + 1
+            while (low < high) {
+                val mid = low + (high - low) / 2
+                if (predicate(mid)) high = mid else low = mid + 1
+            }
+            return low
+        }
+        val left = first(xs) { WebMercator.tileXToLon((it + 1).toDouble(), z) > b.minLon }
+        val right = first(xs) { WebMercator.tileXToLon(it.toDouble(), z) >= b.maxLon } - 1
+        val top = first(ys) { WebMercator.tileYToLat((it + 1).toDouble(), z) < b.maxLat }
+        val bottom = first(ys) { WebMercator.tileYToLat(it.toDouble(), z) <= b.minLat } - 1
+        return (left..right) to (top..bottom)
     }
 
     fun tiles(): Sequence<TileId> {
+        only?.let { selected ->
+            return selected.asSequence().filter { contains(it) }.sortedWith(
+                compareBy<TileId>({ it.y shr (it.z - minZ) }, { it.x shr (it.z - minZ) },
+                    { it.z }, { if (blockSize > 0) it.x / blockSize else it.x },
+                    { if (blockSize > 0) it.y / blockSize else it.y }, { it.x }, { it.y })
+            )
+        }
+        val ranges = (minZ..maxZ).associateWith { ranges(it) }
         return sequence {
-            for (y in IntRange(minY, maxY)) {
-                for (x in IntRange(minX, maxX)) {
-                    for (z in IntRange(minZ, maxZ)) {
-                        val scalingFactor = 1 shl (z - minZ)
-                        val innerMinX = x * scalingFactor
-                        val innerMinY = y * scalingFactor
-                        val innerMaxX = (x + 1) * scalingFactor - 1
-                        val innerMaxY = (y + 1) * scalingFactor - 1
-                        for (innerX in innerMinX..innerMaxX) {
-                            for (innerY in innerMinY..innerMaxY) {
-                                yield(TileId(z, innerX, innerY))
+            for (y in minY..maxY) {
+                for (x in minX..maxX) {
+                    for (z in minZ..maxZ) {
+                        val factor = 1 shl (z - minZ)
+                        val (xs, ys) = ranges.getValue(z)
+                        val left = maxOf(x * factor, xs.first)
+                        val right = minOf((x + 1) * factor - 1, xs.last)
+                        val top = maxOf(y * factor, ys.first)
+                        val bottom = minOf((y + 1) * factor - 1, ys.last)
+                        if (left > right || top > bottom) continue
+                        val side = if (blockSize > 0) blockSize else factor
+                        for (bx in left..right step side) for (by in top..bottom step side) {
+                            for (innerX in bx..minOf(bx + side - 1, right)) {
+                                for (innerY in by..minOf(by + side - 1, bottom)) yield(TileId(z, innerX, innerY))
                             }
                         }
                     }
                 }
             }
+        }
+    }
+
+    companion object {
+        /** The tile range at [minZ] that covers [bounds]. */
+        fun covering(bounds: LonLatBounds, minZ: Int, maxZ: Int): TileRange {
+            val topLeft = WebMercator.tileAt(bounds.minLon, bounds.maxLat, minZ)
+            val bottomRight = WebMercator.tileAt(bounds.maxLon, bounds.minLat, minZ)
+            return TileRange(
+                minZ = minZ, maxZ = maxZ,
+                minX = topLeft.x, maxX = bottomRight.x,
+                minY = topLeft.y, maxY = bottomRight.y,
+                bounds = bounds
+            )
         }
     }
 }

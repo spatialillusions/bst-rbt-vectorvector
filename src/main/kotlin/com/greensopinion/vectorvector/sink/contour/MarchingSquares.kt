@@ -8,7 +8,15 @@ import kotlin.math.floor
 class MarchingSquares(
     private val tile: ElevationTile,
     extent: Int,
-    private val buffer: Int
+    private val buffer: Int,
+    /** Keeps only the contour levels for which this returns true. */
+    private val levelFilter: (Int) -> Boolean = { true },
+    /**
+     * Rounds interpolated points to integer tile coordinates. When false, points are exact; edge
+     * intersections are then computed in a canonical edge direction so that the two cells sharing an edge
+     * produce bit-identical points and lines join through the hash lookup.
+     */
+    private val roundPoints: Boolean = true
 ) {
     private val factor: Double = extent.toDouble() / tile.extent
 
@@ -37,8 +45,8 @@ class MarchingSquares(
                     if (topRight > contourLevel) caseIndex = caseIndex or 4
                     if (topLeft > contourLevel) caseIndex = caseIndex or 8
 
-                    val contour = handleCase(x, y, bottomLeft, bottomRight, topRight, topLeft, contourLevel, caseIndex)
-                    if (contour.isNotEmpty()) {
+                    val contours = handleCase(x, y, bottomLeft, bottomRight, topRight, topLeft, contourLevel, caseIndex)
+                    for (contour in contours) {
                         var firstContour = findContour(endToContour, contour.first())
                         var lastContour = findContour(endToContour, contour.last())
 
@@ -119,10 +127,19 @@ class MarchingSquares(
         topLeft: Elevation,
         contourLevel: Int,
         caseIndex: Int
-    ): List<DoublePoint> {
+    ): List<List<DoublePoint>> {
         val contour = mutableListOf<DoublePoint>()
 
         fun interpolate(p1: DoublePoint, p2: DoublePoint, v1: Elevation, v2: Elevation): DoublePoint {
+            if (!roundPoints) {
+                val swap = p1.x > p2.x || (p1.x == p2.x && p1.y > p2.y)
+                val a = if (swap) p2 else p1
+                val b = if (swap) p1 else p2
+                val va = if (swap) v2 else v1
+                val vb = if (swap) v1 else v2
+                val t = (contourLevel - va.meters) / (vb - va).meters
+                return DoublePoint(a.x + t * (b.x - a.x), a.y + t * (b.y - a.y)) * factor
+            }
             return if (v1 == v2) {
                 ((p1 + p2) / 2.0).round()
             } else {
@@ -158,9 +175,16 @@ class MarchingSquares(
                 contour.add(interpolate(pointTopRight, pointBottomRight, topRight, bottomRight))
                 contour.add(interpolate(pointTopLeft, pointTopRight, topLeft, topRight))
             }
-            5 -> {
-                contour.add(interpolate(pointBottomLeft, pointBottomRight, bottomLeft, bottomRight))
-                contour.add(interpolate(pointTopRight, pointTopLeft, topRight, topLeft))
+            5, 10 -> {
+                val bottom = interpolate(pointBottomLeft, pointBottomRight, bottomLeft, bottomRight)
+                val right = interpolate(pointBottomRight, pointTopRight, bottomRight, topRight)
+                val top = interpolate(pointTopLeft, pointTopRight, topLeft, topRight)
+                val left = interpolate(pointBottomLeft, pointTopLeft, bottomLeft, topLeft)
+                return if (saddleBottomToRight(bottomLeft.meters, bottomRight.meters, topRight.meters, topLeft.meters, contourLevel)) {
+                    listOf(listOf(bottom, right), listOf(left, top))
+                } else {
+                    listOf(listOf(bottom, left), listOf(right, top))
+                }
             }
             6 -> {
                 contour.add(interpolate(pointBottomLeft, pointBottomRight, bottomLeft, bottomRight))
@@ -177,10 +201,6 @@ class MarchingSquares(
             9 -> {
                 contour.add(interpolate(pointBottomLeft, pointBottomRight, bottomLeft, bottomRight))
                 contour.add(interpolate(pointTopLeft, pointTopRight, topLeft, topRight))
-            }
-            10 -> {
-                contour.add(interpolate(pointBottomLeft, pointTopLeft, bottomLeft, topLeft))
-                contour.add(interpolate(pointBottomRight, pointTopRight, bottomRight, topRight))
             }
             11 -> {
                 contour.add(interpolate(pointBottomRight, pointTopRight, bottomRight, topRight))
@@ -200,14 +220,14 @@ class MarchingSquares(
             }
         }
 
-        return contour
+        return if (contour.isEmpty()) emptyList() else listOf(contour)
     }
 
     private fun contourLevels(interval: Int): List<Int> {
         val bounds = tile.elevationBounds
         val lower = (floor(bounds.min.meters).toInt() / interval) * interval
         val upper = (ceil(bounds.max.meters).toInt() / interval) * interval
-        return (lower..upper step interval).filter { !isSeaLevel(it) }.toList()
+        return (lower..upper step interval).filter { !isSeaLevel(it) && levelFilter(it) }.toList()
     }
 
     private fun isSeaLevel(it: Int) = it == 0

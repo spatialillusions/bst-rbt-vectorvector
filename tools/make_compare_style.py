@@ -1,0 +1,84 @@
+"""Builds styles/RBT-TOPO-contours/style.json from the RBT-TOPO style.
+
+* The four `elevationContour--*` layers read from source CONTOURS (our contours.mbtiles).
+* `rbt--elevationContour--*` copies keep reading RBT, in magenta, hidden by default (toggle to overlay both).
+* A `peaks` layer (circle + label) reads CONTOURS/peaks.
+
+Usage:
+    python tools/make_compare_style.py --rbt-root <directory> [--style <RBT-TOPO style.json>] [--sprites <sprite directory>]
+
+Optional research tool: the RBT-TOPO style and sprites must be supplied explicitly.
+For normal use, see the standalone styles/contours/style.json.
+"""
+import argparse
+import copy
+import glob
+import json
+import os
+import shutil
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+OUT = os.path.join(ROOT, "styles", "RBT-TOPO-contours")
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--rbt-root", required=True, help="Optional comparison only: your RBT TileServer directory")
+    ap.add_argument("--style")
+    ap.add_argument("--sprites")
+    a = ap.parse_args()
+    local = os.path.join(a.rbt_root, "styles", "RBT-TOPO")
+    a.style = a.style or os.path.join(local, "style.json")
+    a.sprites = a.sprites or local
+    with open(a.style, encoding="utf-8") as f:
+        style = json.load(f)
+
+    style["name"] = "RBT-TOPO with vectorvector contours"
+    style["sources"]["CONTOURS"] = {"type": "vector", "url": "mbtiles://{CONTOURS}"}
+    layers = []
+    rbt_copies = []
+    for layer in style["layers"]:
+        if layer.get("source-layer") == "contours" and layer.get("source") == "RBT":
+            ours = copy.deepcopy(layer)
+            ours["source"] = "CONTOURS"
+            layers.append(ours)
+            theirs = copy.deepcopy(layer)
+            theirs["id"] = "rbt--" + layer["id"]
+            theirs.setdefault("layout", {})["visibility"] = "none"
+            paint = theirs.setdefault("paint", {})
+            if theirs["type"] == "line":
+                paint["line-color"] = "#ff00ff"
+            else:
+                paint["text-color"] = "#ff00ff"
+            rbt_copies.append(theirs)
+        else:
+            layers.append(layer)
+    layers.extend(rbt_copies)
+    layers.append({
+        "id": "peaks--point", "type": "circle", "source": "CONTOURS", "source-layer": "peaks", "minzoom": 9,
+        "filter": ["step", ["zoom"], ["<=", ["get", "rank"], 5], 11, ["<=", ["get", "rank"], 15], 12, True],
+        "paint": {"circle-radius": 2.5, "circle-color": "#5b3a29", "circle-stroke-color": "#ffffff", "circle-stroke-width": 1}
+    })
+    layers.append({
+        "id": "peaks--label", "type": "symbol", "source": "CONTOURS", "source-layer": "peaks", "minzoom": 9,
+        "filter": ["all", ["has", "name"], ["step", ["zoom"], ["<=", ["get", "rank"], 5], 11, ["<=", ["get", "rank"], 15], 12, True]],
+        "layout": {
+            "text-field": ["case", ["has", "ele"], ["concat", ["get", "name"], "\n", ["to-string", ["get", "ele"]], " m"], ["get", "name"]],
+            "text-font": ["NotoSansItalic"], "text-size": 11, "text-offset": [0, 0.6], "text-anchor": "top",
+            "text-max-width": 8
+        },
+        "paint": {"text-color": "#5b3a29", "text-halo-color": "rgba(255,255,255,0.9)", "text-halo-width": 1.2}
+    })
+    style["layers"] = layers
+    os.makedirs(OUT, exist_ok=True)
+    with open(os.path.join(OUT, "style.json"), "w", encoding="utf-8") as f:
+        json.dump(style, f, indent=1, ensure_ascii=False)
+    copied = 0
+    for sprite in glob.glob(os.path.join(a.sprites, "sprite*")):
+        shutil.copy(sprite, OUT)
+        copied += 1
+    print("wrote %s (%d layers, %d sprite files)" % (os.path.join(OUT, "style.json"), len(layers), copied))
+
+
+if __name__ == "__main__":
+    main()

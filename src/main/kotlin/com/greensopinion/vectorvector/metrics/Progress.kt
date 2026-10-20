@@ -4,15 +4,15 @@ import io.github.oshai.kotlinlogging.KLogger
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.time.Duration
 import java.time.Instant
-import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicLong
 
 class Progress(
-    private val total: Int,
+    private val total: Long,
     private val interval: Duration = Duration.ofSeconds(30),
     private val log: KLogger = KotlinLogging.logger { }
 ) {
-    private val completed = AtomicInteger()
-    private val processed = AtomicInteger()
+    private val completed = AtomicLong()
+    private val processed = AtomicLong()
 
     private val start = Instant.now()
     val elapsed: Duration get() = Duration.between(start, Instant.now())
@@ -25,7 +25,7 @@ class Progress(
         if (processed) {
             this.processed.incrementAndGet()
         }
-        if (completed.incrementAndGet() % 1000 == 0) {
+        if (completed.incrementAndGet() % 1000L == 0L) {
             val last = this.last
             val elapsed = Duration.between(last, Instant.now())
             if (elapsed > interval) {
@@ -41,14 +41,14 @@ class Progress(
         val processed = this.processed.get()
         val remaining = total - completed
         val estimation: String
-        if (processed == 0) {
+        if (completed == 0L) {
             estimation = "no tiles processed, cannot estimate"
         } else {
-            val perSecond = processed.toDouble() / elapsed.toSeconds().toDouble()
+            val perSecond = completed.toDouble() / (elapsed.toMillis().coerceAtLeast(1) / 1000.0)
             val estimated = Duration.ofSeconds((remaining / perSecond).toLong())
             estimation = estimated.toLogString()
         }
-        log.info { "$completed completed, $remaining remaining (%${((remaining.toDouble() / total) * 100)})" }
+        log.info { "$completed completed ($processed with output), $remaining remaining (%${((remaining.toDouble() / total) * 100)})" }
         log.info { "elapsed time: ${elapsed.toLogString()}" }
         log.info { "estimated time remaining: $estimation" }
     }

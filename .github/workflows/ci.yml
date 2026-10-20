@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      # Unit tests plus the PMTiles fixture tests; tests that need data/iceland are skipped automatically.
+      - run: mvn -B clean verify
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r tools/requirements-verify.txt
+      - run: python -m unittest discover -s tools -p test_verify_dependency_notices.py -v
+      - run: python tools/verify_dependency_notices.py
+      - run: python -m unittest discover -s tools -p test_verify_contours.py -v
+      - run: python tools/generate_example.py
+      - run: python tools/verify_contours.py out/example-contours/contours.mbtiles
+      - run: python -m unittest discover -s tools -p test_recycle_policy.py -v
+      - run: python -m unittest discover -s tools -p test_verify_shard_merge.py -v
+      - run: python -m unittest discover -s tools -p test_validate_memory_upgrade.py -v
+      - run: python -m unittest discover -s tools -p test_native_speed_validation.py -v
+      - run: python -m unittest discover -s tools -p test_planet_speed.py -v
+      - run: python -m unittest discover -s tools -p test_continue_validated_upgrade.py -v
+      # An explicit native run must load the packaged decoder, rather than skip it.
+      - run: python tools/generate_example.py --decoder native --out out/example-native
+      - run: python tools/verify_contours.py out/example-native/contours.mbtiles
+      - run: python tools/compare_tiles.py out/example-contours/contours.mbtiles out/example-native/contours.mbtiles --raw
