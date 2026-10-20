@@ -1,6 +1,6 @@
 # Migration cutover checklist
 
-Updated 19 October 2026. The tested source already lives on
+Updated 20 October 2026. The tested source already lives on
 `migration/planet-contours-20261017`, a branch of the Git repository whose main
 checkout is `C:/Users/DarkStar/Documents/GitHub/vectorvector`. Its development
 worktree is `F:/vectorvector-migration-20261017`. Copying the source over the
@@ -34,21 +34,24 @@ identity, build/test logs, fixture outputs, class comparison and a hash-checked
 backup of the original checkout's 37 modified/untracked paths. Original status,
 patches, HEAD, branch, remotes and file hashes were rechecked unchanged.
 
-## Finish production validation
+## Production validation completed
 
 The repaired producer was checkpoint-paused with 3,857/4,096 shards complete.
 The separate native deployment is `F:/vectorvector-planet-native-20261019`.
-Its guarded continuation audits/imports completed shards before launching native
-generation. Keep the frozen JAR, inputs and command unchanged. Read
+Its guarded continuation imported those shards and completed the remaining 239,
+merged all output and passed full verification. Keep the frozen JAR, inputs and
+command unchanged. Read
 `upgrade-status.json` for handover state and then `status.json` for production
 state. Preserve the old deployment as the rollback source.
 
-Required before declaring the planet successful:
+The completion gate passed on 19 October at 22:54:49 local; see the
+[completion report](planet-completion-20261019.md). Acceptance checks were:
 
 1. All 4,096 completion markers, successful merge and full raw-payload verification.
 2. Independent pilot comparison and `planet-complete-and-verified` status.
-3. Final archive size, representative visual review and sustained memory/throughput
-   observations recorded in the migration report.
+3. Final archive size and memory observations recorded in the completion report.
+   Existing representative visual checks remain regional evidence; there is no
+   claim of a visual survey of every planet tile.
 
 ## Prepare publication
 

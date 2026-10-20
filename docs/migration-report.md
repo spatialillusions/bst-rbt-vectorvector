@@ -1,5 +1,10 @@
 # Migration execution record
 
+**20 October cutover:** the [completed planet report](planet-completion-20261019.md)
+records successful generation, merge and full verification. Historical run and
+resume paths below are retained as provenance. Local checkout cutover follows
+[the checklist](migration-cutover.md); binary release and remote CI remain separate.
+
 **19 October recovery:** the [glacier topology repair report](glacier-topology-recovery.md)
 records the reproduced Antarctic failure, Planetiler comparison, validated fix
 and guarded continuation to `F:/vectorvector-planet-repaired-20261019`. Its

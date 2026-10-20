@@ -5,6 +5,9 @@ Generate contour vector tiles, hillshade and Terrarium elevation tiles. This for
 [Releasable Basemap Tiles (RBT)](https://github.com/ReleasableBasemapTiles/RBT-Public),
 OSM glacier/peak support, and resumable builds for large datasets.
 
+A [completed planet build](docs/planet-completion-20261019.md) passed full payload
+verification: 23.46 million tiles at z9-13 in a 49.09 GiB archive.
+
 The RBT profile reproduces the layer schema, contour intervals and a similar visual appearance.
 It has been compared against RBT in Iceland and several other regions; it is not an exact copy
 of RBT's geometry. See the [quality comparison](docs/rbt-global-validation.md) for known differences.
