@@ -18,9 +18,10 @@ in the older, unpublished working copy.
 | `run-wholeworld-sharded.ps1` | Preserve older wrapper, replace active entry point | Use `run-planet-sharded.ps1`; no aliases that silently reinterpret incompatible arguments. |
 | `.idea/codeStyles/Project.xml`, `.idea/codeStyles/codeStyleConfig.xml`, `.mvn/jvm.config` | Retain existing upstream configuration initially | Small existing tracked configuration, not copied local IDE state. |
 
-Every older-only source/test file identified by the inventory is covered above. The older WIP's
-deleted `FaultBarrierTileSink`, `LogTileSink` and `HillshadeOptions` do not justify removing retained
-upstream/default-profile behavior from the new pipeline.
+Every older-only source/test file identified by the inventory is covered above. The initially
+retained `FaultBarrierTileSink`, `LogTileSink` and `HillshadeOptions` were removed after the
+merge audit confirmed that no application or test code references them. The supported
+default-profile behavior remains in the active sinks and elevation stores.
 
 ## Commands and output changes
 
