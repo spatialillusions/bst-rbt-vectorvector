@@ -55,10 +55,10 @@ The completion gate passed on 19 October at 22:54:49 local; see the
 
 ## Prepare publication
 
-1. Review the branch diff, compatibility notes and upstream attribution. Finish
-   the shaded binary's complete dependency-license/notice inventory; the bundled
-   native WebP notices are present, but this does not close the broader binary
-   notice audit. Source preparation and binary release are separate gates.
+1. Review the branch diff, compatibility notes and upstream attribution. The [runtime notice audit](dependency-notices.md) now covers the resolved
+   dependencies and verifies their texts in the shaded JAR. Keep this inventory
+   current for every dependency change. Source preparation and binary release
+   remain separate gates.
 2. Build publication artifacts from clean source with JDK 21 and `clean verify`.
    Keep generated archives, datasets, local tools and evidence out of Git.
 3. Finalize version and release notes with the actual planet result and known
@@ -101,5 +101,6 @@ match the producer used in planet validation. No external RBT dataset was used
 for these destination smoke tests. The final record is `cutover-report.json` in
 the evidence directory.
 
-No push, `main` merge or binary release is part of this local cutover. Remote CI
-and the broader shaded dependency-notice review remain publication/release gates.
+No push, `main` merge or binary release is part of this local cutover. Remote CI remains a merge gate. The resolved runtime notice audit is complete
+and enforced by the packaged-notice check; a binary release still needs version
+and release-note review.

@@ -277,3 +277,13 @@ Historical design proposals are preserved under [docs/history/](docs/history/REA
 
 BSD 3-Clause, copyright David Green. See [LICENSE](LICENSE). This fork builds on
 [greensopinion/vectorvector](https://github.com/greensopinion/vectorvector).
+
+
+## Code and dependency licenses
+
+The upstream BSD 3-Clause [license](LICENSE) is retained. The executable includes
+its runtime dependencies' license and notice texts; see
+[third-party notices](THIRD-PARTY-NOTICES.md) and the
+[packaging audit](docs/dependency-notices.md). CI verifies the shaded JAR's notice
+inventory on Linux and Windows. External elevation/OSM data and optional Python
+environments have their own attribution and license terms.

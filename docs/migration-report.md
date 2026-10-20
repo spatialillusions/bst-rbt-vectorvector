@@ -276,3 +276,15 @@ See [the planet report](planet-completion-20261019.md) for scope and memory limi
 Local code migration and commits are complete. Remote CI, remote integration and
 a binary release remain separate actions; no push, `main` merge or release was
 performed. The shaded binary's broader dependency-notice audit is still open.
+
+
+## Publication preparation, 20 October
+
+The stale check-in guide was replaced with the current Git/branch/CI checklist;
+its dated source-workspace evidence is retained under `docs/history/`.
+The runtime dependency-notice audit now covers all 29 resolved artifacts, retains
+upstream JAR resources in per-artifact directories, adds missing upstream texts
+and includes the original project license in the executable. A hash-checked
+inventory and CI verification detect dependency/notice drift. See
+[dependency-notices.md](dependency-notices.md). This supersedes the earlier open
+notice-audit status; release-version choice remains a separate binary release step.

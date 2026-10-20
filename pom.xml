@@ -26,7 +26,47 @@
     <build>
         <sourceDirectory>src/main/kotlin</sourceDirectory>
         <testSourceDirectory>src/test/kotlin</testSourceDirectory>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+            </resource>
+            <resource>
+                <directory>${project.basedir}</directory>
+                <targetPath>META-INF/licenses/vectorvector</targetPath>
+                <includes>
+                    <include>LICENSE</include>
+                    <include>THIRD-PARTY-NOTICES.md</include>
+                </includes>
+            </resource>
+        </resources>
         <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <version>3.7.0</version>
+                <executions>
+                    <execution>
+                        <id>preserve-runtime-notices</id>
+                        <phase>prepare-package</phase>
+                        <goals><goal>unpack-dependencies</goal></goals>
+                        <configuration>
+                            <includeScope>runtime</includeScope>
+                            <includes>**/LICENSE*,**/LICENCE*,**/NOTICE*,**/COPYING*,**/PATENTS*,**/license*,**/notice*,**/copying*,**/patents*</includes>
+                            <useSubDirectoryPerArtifact>true</useSubDirectoryPerArtifact>
+                            <outputDirectory>${project.build.outputDirectory}/META-INF/dependency-licenses</outputDirectory>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>record-runtime-dependencies</id>
+                        <phase>prepare-package</phase>
+                        <goals><goal>list</goal></goals>
+                        <configuration>
+                            <includeScope>runtime</includeScope>
+                            <outputFile>${project.build.directory}/runtime-dependencies.txt</outputFile>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <groupId>org.jetbrains.kotlin</groupId>
                 <artifactId>kotlin-maven-plugin</artifactId>
