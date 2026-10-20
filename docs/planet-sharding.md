@@ -84,6 +84,30 @@ output directory. These select output tiles; they do not restrict OSM index load
 it possible to measure the global feature indexes while rendering a small area. See
 [planet preflight](planet-preflight.md) and the measured readiness report before an unattended full run.
 
+## Bounded Iceland smoke test
+
+After a clean JDK 21 build (`.\build-jdk21.ps1 -MavenArgs @('clean', 'verify')`),
+use the regional inputs listed in [Iceland data sources](../data/iceland/SOURCES.md).
+Substitute their actual paths if they live outside the checkout:
+
+```powershell
+.\run-planet-sharded.ps1 `
+    -ElevationArchive .\data\iceland\mapterhorn-iceland-z0-12.pmtiles `
+    -OsmPbf .\data\iceland\iceland-latest.osm.pbf `
+    -Bbox '-16.8,63.9,-16.5,64.1' -MaxZoom 13 `
+    -ShardsX 1 -ShardsY 1 -Parallelism 2 -JavaHeap 2g `
+    -OutputDir .\out\iceland-smoke
+python -m pip install -r tools/requirements-verify.txt
+python tools/verify_contours.py .\out\iceland-smoke\contours.mbtiles
+python tools/verify_shard_merge.py .\out\iceland-smoke --expected-shards 1 --report .\out\iceland-smoke\merge-verification.json
+```
+
+This covers a small area around Hvannadalshnukur, including glacier terrain, at z9–13.
+It exercises the planet launcher, regional elevation, OSM glaciers/peaks, shard output,
+and the final merge. The verifiers check the contour schema and every merged tile
+payload. They do not establish terrain accuracy or visual quality. Choose a fresh
+output directory for a new executable; repeat the same command to test shard reuse.
+
 ## Resume and recovery
 
 Rerun **the same command with the same executable and inputs**. Do not rebuild first.
