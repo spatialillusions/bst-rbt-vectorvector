@@ -1,11 +1,11 @@
 [CmdletBinding()]
 param(
-    [string]$ElevationArchive = 'D:\Mapterhorn\mapterhorn.pmtiles',
+    [string]$ElevationArchive = 'D:\geodata\Mapterhorn\mapterhorn.pmtiles',
     [string[]]$AdditionalPmtiles = @(),
-    [string]$OsmPbf = 'D:\OpenStreetMap\planet-260921.osm.pbf',
+    [string]$OsmPbf,
     [string]$GlacierWkb,
     [string]$SpatialData,
-    [string]$OutputDir = (Join-Path $PSScriptRoot 'out\planet'),
+    [string]$OutputDir = 'D:\geodata\Contours',
     [ValidateRange(1, 1024)][int]$Parallelism = 8,
     [ValidateRange(1, 64)][int]$ShardsX = 64,
     [ValidateRange(1, 64)][int]$ShardsY = 64,
@@ -33,6 +33,19 @@ if ($GarbageCollector -ne 'g1' -and $G1HeapRegionSize -ne 'auto') {
     throw '-G1HeapRegionSize requires -GarbageCollector g1'
 }
 if ($NoOsm -and ($GlacierWkb -or $SpatialData)) { throw '-NoOsm cannot be combined with glacier/spatial inputs' }
+if (-not $NoOsm -and -not $OsmPbf) {
+    # Dated planet snapshots sort by their snapshot date, independent of copy timestamps.
+    $planets = @(Get-ChildItem -LiteralPath 'D:\geodata' -Recurse -File -Filter 'planet*.pbf' |
+        Where-Object { $_.Name -match '^planet-(\d{6}|\d{8})\.osm\.pbf$' } |
+        Sort-Object @{ Expression = {
+            $date = [regex]::Match($_.Name, '\d{6,8}').Value
+            if ($date.Length -eq 6) { $date = '20' + $date }
+            $date
+        }; Descending = $true }, @{ Expression = { $_.FullName }; Descending = $false })
+    if ($planets.Count -eq 0) { throw 'No dated planet-YYMMDD.osm.pbf or planet-YYYYMMDD.osm.pbf found under D:\geodata; supply -OsmPbf.' }
+    $OsmPbf = $planets[0].FullName
+    Write-Host "Selected newest planet snapshot: $OsmPbf"
+}
 
 $jar = Join-Path $PSScriptRoot 'target\vectorvector-cli.jar'
 $cliArgs = @(
@@ -87,5 +100,25 @@ try {
     }
     finally { $ErrorActionPreference = 'Stop' }
     if ($runExitCode -ne 0) { throw "Planet build failed with exit code $runExitCode; see $runLog.log" }
+    $finishedOutput = Join-Path $OutputDir 'contours.mbtiles'
+    if (-not (Test-Path -LiteralPath $finishedOutput -PathType Leaf)) {
+        throw "Successful process did not produce $finishedOutput; keeping shards."
+    }
+    # The CLI publishes contours.mbtiles atomically only after the complete merge succeeds.
+    # Delete only this launcher's default shard directory, never inputs or the output root.
+    $outputRoot = (Resolve-Path -LiteralPath $OutputDir).ProviderPath.TrimEnd('\')
+    $shardPath = Join-Path $outputRoot '.shards'
+    if (Test-Path -LiteralPath $shardPath) {
+        $shardItem = Get-Item -LiteralPath $shardPath -Force
+        if (($shardItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0 -or
+            $shardItem.FullName -ne $shardPath -or
+            @(Get-ChildItem -LiteralPath $shardPath -Recurse -Force |
+                Where-Object { ($_.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0 }).Count -gt 0) {
+            throw "Refusing cleanup of redirected shard path: $shardPath"
+        }
+        Remove-Item -LiteralPath $shardPath -Recurse -Force
+        Write-Host "Removed completed shards: $shardPath"
+    }
+    Write-Host "Finished: $finishedOutput"
 }
 finally { Pop-Location }

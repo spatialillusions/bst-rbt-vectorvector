@@ -204,6 +204,12 @@ Defaults are eight tile workers, 384 MiB of elevation cache budgets (512-entry b
 128 MiB of glacier cache budgets (1,024-entry bounds), a
 16 GiB G1 heap, and 64 × 64 partitions rooted at z6. Completed shards are reused after interruption;
 final merging copies compressed blobs into a disposable database and builds its index once.
+The launcher defaults to `D:\geodata\Mapterhorn\mapterhorn.pmtiles`, selects the newest
+dated `planet-YYMMDD.osm.pbf` (or `planet-YYYYMMDD.osm.pbf`) recursively under `D:\geodata`,
+and writes to `D:\geodata\Contours`. Snapshot dates take precedence over file modification times.
+An explicit `-OsmPbf` overrides selection. The merge atomically replaces `contours.mbtiles`
+only after success, then the launcher removes its `.shards` directory. Failed builds retain
+shards for resume and leave the previous completed archive intact. Logs are retained.
 
 The launcher supports `-ElevationArchive`, `-AdditionalPmtiles`, `-OsmPbf`, `-OutputDir`, `-Bbox`
 and `-TileList`, plus resource controls. Its default input locations are machine-specific;
