@@ -2,7 +2,7 @@
   "format": 1,
   "dependencies": [
     {
-      "coordinate": "org.jetbrains.kotlin:kotlin-stdlib:2.1.0",
+      "coordinate": "org.jetbrains.kotlin:kotlin-stdlib:2.3.21",
       "license": "Apache-2.0",
       "files": [
         {
@@ -13,7 +13,7 @@
         {
           "path": "META-INF/licenses/third-party/kotlin-COPYRIGHT.txt",
           "sha256": "8f1a1700adb5490604c6094fb137bf73f6c28d3ee554b58f3ff8ef975a79672d",
-          "source": "https://raw.githubusercontent.com/JetBrains/kotlin/v2.1.0/license/COPYRIGHT.txt"
+          "source": "https://raw.githubusercontent.com/JetBrains/kotlin/v2.3.21/license/COPYRIGHT.txt"
         }
       ]
     },

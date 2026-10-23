@@ -127,12 +127,32 @@ class PeakIndex(
         val sorted = candidates
             .sortedWith(compareBy<Pair<Peak, Double>>({ it.first.name == null },
                 { -(it.first.ele ?: Int.MIN_VALUE / 2) }, { it.first.osmId }))
-            .let { if (tile.z < allPeaksZoom) it.take(maxPeaksPerTile) else it }
-        return sorted.map { (p, shift) ->
+        val positioned = sorted.map { (p, shift) ->
             val x = ((WebMercator.lonToTileX(p.lon + shift, tile.z) - tile.x) * extent).roundToInt()
             val y = ((WebMercator.latToTileY(p.lat, tile.z) - tile.y) * extent).roundToInt()
             Pair(p, Pair(x, y))
         }
+        if (tile.z >= allPeaksZoom) return positioned
+
+        // Express spacing in 256-pixel tile units so low-zoom clusters cannot
+        // consume the entire budget. Keep the existing importance ordering.
+        val steps = (allPeaksZoom - tile.z - 1).coerceIn(0, 10)
+        val limit = minOf(maxPeaksPerTile, (16 shr steps).coerceAtLeast(1))
+        if (limit <= 0) return emptyList()
+        val spacing = (32 + 16 * steps).toDouble() * extent / 256
+        val selected = mutableListOf<Pair<Peak, Pair<Int, Int>>>()
+        for (candidate in positioned) {
+            val (x, y) = candidate.second
+            if (selected.all { (_, xy) ->
+                val dx = x.toDouble() - xy.first
+                val dy = y.toDouble() - xy.second
+                dx * dx + dy * dy >= spacing * spacing
+            }) {
+                selected += candidate
+                if (selected.size >= limit) break
+            }
+        }
+        return selected
     }
 
     fun layer(tile: TileId): VectorTile.Tile.Layer? {

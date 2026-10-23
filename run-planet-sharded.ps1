@@ -84,7 +84,7 @@ Push-Location $PSScriptRoot
 try {
     # Build once. Reusing the same executable is required by the resume manifest.
     if ($Build -or -not (Test-Path -LiteralPath $jar)) {
-        & (Join-Path $PSScriptRoot 'build-jdk21.ps1') -MavenArgs @('-B', 'package')
+        & (Join-Path $PSScriptRoot 'build-jdk25.ps1') -MavenArgs @('-B', 'package')
         if ($LASTEXITCODE -ne 0) { throw "Build failed with exit code $LASTEXITCODE" }
     }
     $logDir = Join-Path $OutputDir 'logs'

@@ -96,7 +96,7 @@ if __name__ == "__main__":
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("action", choices=("prepare", "sustained", "quality"))
     p.add_argument("--out", type=Path, default=Path("out/planet-pilot-20261017"))
-    p.add_argument("--java", type=Path, default=Path(".tools/jdk-21.0.12.1+1/bin/java.exe"))
+    p.add_argument("--java", type=Path, default=Path("java"), help="JDK 25 executable; defaults to PATH (source env.ps1/env.sh first)")
     p.add_argument("--elevation", type=Path, default=Path("D:/Mapterhorn/mapterhorn.pmtiles"))
     p.add_argument("--osm", type=Path, default=Path("out/planet-pilot-20261017/planet-features.osm.pbf"))
     p.add_argument("--glacier-wkb", type=Path, help="Additional OSM ice-sheet WKB input")

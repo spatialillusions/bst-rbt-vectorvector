@@ -276,7 +276,7 @@ def main():
     root = Path(__file__).resolve().parents[1]
     parser.add_argument("--jar", type=Path, default=root / "target/vectorvector-cli.jar")
     parser.add_argument("--compare-jar", type=Path, help="Interleave measurements of a second executable")
-    parser.add_argument("--java", type=Path, default=next((root / ".tools").glob("jdk-21*/bin/java.exe")))
+    parser.add_argument("--java", type=Path, default=Path("java"), help="JDK 25 executable; defaults to PATH (source env.ps1/env.sh first)")
     parser.add_argument("--elevation", type=Path, default=Path(r"D:\Mapterhorn\mapterhorn.pmtiles"))
     parser.add_argument("--osm", type=Path)
     parser.add_argument("--out", type=Path, default=root / "out/performance")

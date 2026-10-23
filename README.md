@@ -18,19 +18,24 @@ recommendations and focused measurements for further memory and throughput impro
 
 ## Build
 
-Use **JDK 21** and Maven:
+Use **Eclipse Temurin 25.0.4.1+1** (the same JDK as `bst-rbt-planetiler`) and Maven:
 
 ```sh
 mvn verify
 java -jar target/vectorvector-cli.jar --help
 ```
 
-The executable JAR includes its dependencies. If the optional project-local JDK/Maven tools
-are already installed under `.tools/`, PowerShell users can run `. .\env.ps1` first; Git Bash
-users can run `source ./env.sh`. Those helpers do not install a toolchain.
+The executable JAR includes its dependencies. PowerShell users can run `. .\env.ps1` first;
+Git Bash users can run `source ./env.sh` to select the shared JDK and available Maven tools.
+Those helpers do not install a toolchain.
 
-For local Windows builds, use `./build-jdk21.ps1 -MavenArgs verify`; it checks JDK 21 before
-running Maven. Set `JDK21_HOME` or pass `-JavaHome <jdk-directory>` when no local SDK is present.
+For local Windows builds, use `./build-jdk25.ps1 -MavenArgs verify`; it checks the exact Temurin build before
+running Maven. Set `JDK25_HOME` or pass `-JavaHome <jdk-directory>` when no local SDK is present.
+Both repositories share the account-wide JDK at
+`%LOCALAPPDATA%\Programs\Eclipse Adoptium\jdk-25.0.4.1+1`, outside either checkout.
+User-level `JAVA_HOME`, `JDK25_HOME` and `PATH` select it in new terminals; run `. .\env.ps1`
+to select it in an existing PowerShell session. `build-jdk21.ps1` remains a forwarding entry point.
+Kotlin bytecode still targets Java 21.
 The [migration plan](docs/migration-plan.md) and [compatibility notes](docs/migration-compatibility.md)
 describe the move from the older planet implementation and its changed options.
 The [cutover checklist](docs/migration-cutover.md) records current validation and
@@ -40,7 +45,7 @@ the remaining steps before publication and switching the original checkout.
 
 No RBT data is required to build, test, generate or verify contours. After building,
 run this small example using the committed PMTiles fixture (Python 3, standard
-library only; `java` must select JDK 21):
+library only; `java` must select JDK 25):
 
 ```sh
 python tools/generate_example.py
@@ -48,7 +53,7 @@ python tools/generate_example.py
 
 It creates `out/example-contours/contours.mbtiles` with z9?10 contours near
 16.675? W, 64? N. Use a fresh `--out <directory>` for another run; existing output
-is preserved. Pass `--java <jdk21-java-executable>` to select a JDK explicitly.
+is preserved. Pass `--java <jdk25-java-executable>` to select a JDK explicitly.
 To exercise the optional native WebP decoder, use
 `python tools/generate_example.py --decoder native --out out/example-native`.
 The fixture is deliberately tiny and does not represent regional coverage.
@@ -134,6 +139,12 @@ java -Xmx8g -jar target/vectorvector-cli.jar `
 
 This creates `out/contours/contours.mbtiles`. Omit `--glaciers` and `--peaks` for contours without
 OSM inputs; their `is_ice` values will be zero and no peaks layer will be written.
+
+Peaks are thinned at overview zooms: z9 allows at most 4 per tile with 64-pixel
+spacing, z10 allows 8 with 48-pixel spacing, and z11 allows 16 with 32-pixel
+spacing (measured on a 256-pixel tile). Named peaks take priority, then elevation,
+with OSM ID breaking ties. From z12 all peaks are retained. Existing archives
+must be regenerated to use this selection; changed code requires fresh shards.
 
 | Layer | Geometry | Fields |
 |---|---|---|

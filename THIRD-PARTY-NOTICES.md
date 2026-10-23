@@ -18,7 +18,7 @@ The executable JAR contains:
 
 | Artifact | License / bundled notices |
 |---|---|
-| `org.jetbrains.kotlin:kotlin-stdlib:2.1.0` | Apache-2.0 |
+| `org.jetbrains.kotlin:kotlin-stdlib:2.3.21` | Apache-2.0 |
 | `org.jetbrains:annotations:13.0` | Apache-2.0 |
 | `org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0` | Apache-2.0 |
 | `org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.9.0` | Apache-2.0 |

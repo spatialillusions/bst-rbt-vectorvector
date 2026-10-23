@@ -16,7 +16,7 @@ jobs:
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: '21'
+          java-version: '25.0.4.1+1'
           cache: maven
       # Unit tests plus the PMTiles fixture tests; tests that need data/iceland are skipped automatically.
       - run: mvn -B clean verify

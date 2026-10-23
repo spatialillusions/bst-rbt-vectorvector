@@ -1,4 +1,4 @@
-"""Generate a tiny contour archive using only committed repository data (JDK 21 required)."""
+"""Generate a tiny contour archive using only committed repository data (JDK 25 required)."""
 import argparse
 from pathlib import Path
 import subprocess
@@ -7,7 +7,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--java', default='java', help='JDK 21 java executable')
+    parser.add_argument('--java', default='java', help='JDK 25 java executable')
     parser.add_argument('--decoder', choices=('java', 'native'), default='java',
                         help='WebP decoder; native requires a supported platform')
     parser.add_argument('--out', type=Path, default=ROOT / 'out/example-contours')
@@ -17,7 +17,7 @@ def main():
         parser.error('Output already exists; choose a fresh --out directory')
     jar = ROOT / 'target/vectorvector-cli.jar'
     if not jar.is_file():
-        parser.error('Build first: mvn verify (Windows: ./build-jdk21.ps1 -MavenArgs verify)')
+        parser.error('Build first: mvn verify (Windows: ./build-jdk25.ps1 -MavenArgs verify)')
     subprocess.run([a.java, '-Xmx512m', '-Dvectorvector.webpDecoder='+a.decoder,
         '-jar', str(jar), '--profile', 'rbt',
         '--dataFormat', 'mapterhorn', '--pmtiles', str(ROOT / 'src/test/resources/pmtiles/fixture.pmtiles'),

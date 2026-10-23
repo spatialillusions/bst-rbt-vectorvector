@@ -76,8 +76,32 @@ class PeakIndexTest {
     fun `limits peaks per tile at low zoom only`() {
         val peaks = (1L..80L).map { peak(it, "p$it", it.toInt(), it * 0.0001) }
         val index = PeakIndex(peaks, minZoom = 9, maxZoom = 13, demElevation = { _, _ -> null })
-        assertThat(index.ranked(TileId(10, tile.x / 4, tile.y / 4))).hasSize(50)
+        assertThat(index.ranked(TileId(10, tile.x / 4, tile.y / 4)).map { it.first.osmId }).containsExactly(80L)
         assertThat(index.ranked(tile)).hasSize(80)
+    }
+
+    @Test
+    fun `zoom budgets retain spaced peaks and are independent of input order`() {
+        for ((zoom, budget) in listOf(9 to 4, 10 to 8, 11 to 16)) {
+            val target = TileId(zoom, 100, 100)
+            val peaks = (0 until 16).map { i ->
+                Peak(i.toLong(), WebMercator.tileXToLon(100 + (i % 4 + 0.5) / 4, zoom),
+                    WebMercator.tileYToLat(100 + (i / 4 + 0.5) / 4, zoom),
+                    "Peak", null, 1000, "osm", "peak")
+            }
+            fun selected(records: List<Peak>) = PeakIndex(records, 9, 13, { _, _ -> null })
+                .ranked(target).map { it.first.osmId }
+            assertThat(selected(peaks)).hasSize(budget)
+            assertThat(selected(peaks.reversed())).isEqualTo(selected(peaks))
+        }
+    }
+
+    @Test
+    fun `overview thinning prefers named peaks even over higher unnamed neighbours`() {
+        val index = PeakIndex(listOf(peak(1, null, 3000), peak(2, "Named", 500)),
+            9, 13, { _, _ -> null })
+        val overview = TileId(9, tile.x / 8, tile.y / 8)
+        assertThat(index.ranked(overview).map { it.first.osmId }).containsExactly(2L)
     }
 
     @Test

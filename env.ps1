@@ -1,11 +1,14 @@
-# Dot-source to use the project-local toolchain:  . .\env.ps1
-$localToolRoot = Join-Path $PSScriptRoot '.tools'
-if (Test-Path -LiteralPath $localToolRoot -PathType Container) {
-    $localJdk21 = Get-ChildItem $localToolRoot -Directory -Filter 'jdk-21*' | Select-Object -First 1
-    if ($localJdk21) { $env:JAVA_HOME = $localJdk21.FullName }
-    $localMavenDirectory = Get-ChildItem $localToolRoot -Directory -Filter 'apache-maven-*' | Select-Object -First 1
-    if ($localMavenDirectory) { $env:PATH = "$($localMavenDirectory.FullName)\bin;$env:PATH" }
-    $env:PATH = "$localToolRoot\bin;$env:PATH"
+# Dot-source to select the same Temurin build as bst-rbt-planetiler: . .\env.ps1
+$sharedToolRoot = Join-Path $PSScriptRoot '..\bst-rbt-planetiler\.tools'
+if ($env:JDK25_HOME) { $env:JAVA_HOME = $env:JDK25_HOME }
+else {
+    foreach ($candidate in @((Join-Path $env:LOCALAPPDATA 'Programs\Eclipse Adoptium\jdk-25.0.4.1+1'))) {
+        if (Test-Path -LiteralPath (Join-Path $candidate 'bin\java.exe')) {
+            $env:JAVA_HOME = (Resolve-Path -LiteralPath $candidate).Path
+            break
+        }
+    }
 }
-elseif ($env:JDK21_HOME) { $env:JAVA_HOME = $env:JDK21_HOME }
+$sharedMavenBin = Join-Path $sharedToolRoot 'maven\apache-maven-3.9.11\bin'
+if (Test-Path -LiteralPath $sharedMavenBin) { $env:PATH = "$sharedMavenBin;$env:PATH" }
 if ($env:JAVA_HOME) { $env:PATH = "$env:JAVA_HOME\bin;$env:PATH" }
